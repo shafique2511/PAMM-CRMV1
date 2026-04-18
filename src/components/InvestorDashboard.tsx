@@ -231,7 +231,7 @@ export function InvestorDashboard({ investor, history, transactions, trades = []
         <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="text-lg font-semibold mb-6 text-slate-900">Capital Growth History</h3>
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
               <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="date" stroke="#64748b" />
@@ -255,7 +255,7 @@ export function InvestorDashboard({ investor, history, transactions, trades = []
             </h3>
             {profitBreakdownData.length > 0 ? (
               <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                   <PieChart>
                     <Pie
                       data={profitBreakdownData}

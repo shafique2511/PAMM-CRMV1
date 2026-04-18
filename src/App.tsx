@@ -228,7 +228,13 @@ export default function App() {
     logAction('Update Settings', 'Updated manager settings', 'system');
     if (supabase) {
       try {
-        await supabase.from('managers').update(finalUpdates).eq('id', id);
+        const { error } = await supabase.from('managers').update(finalUpdates).eq('id', id);
+        if (error) {
+          console.error("Failed to update manager DB", error);
+          if (error.code === 'PGRST204' || error.message.includes('column') || error.code === '400') {
+             alert('Supabase Schema Error: Your database is missing columns for the newly added features. Try fully logging out to access the "Copy SQL" button on the Supabase setup screen, and run the listed ALTER TABLE commands to fix this issue.');
+          }
+        }
       } catch (e) {
         console.error("Failed to update manager", e);
       }
@@ -492,7 +498,16 @@ export default function App() {
   };
 
   const copySql = () => {
-    const sql = `create table investors (
+    const sql = `-- If you already have these tables, run these ALTER commands instead to add missing columns for new features:
+-- alter table managers add column "baseCurrency" text;
+-- alter table managers add column "investorGroups" jsonb;
+-- alter table managers add column "defaultInvestorGroup" text;
+-- alter table managers add column "feeTiers" jsonb;
+-- alter table managers add column "role" text;
+-- alter table managers add column "permissions" jsonb;
+-- alter table managers add column "enableIBModule" boolean;
+
+create table investors (
   id uuid default gen_random_uuid() primary key,
   "investorName" text,
   "password" text,
@@ -522,7 +537,14 @@ create table managers (
   "mt5Server" text,
   "mt5Login" text,
   "mt5Password" text,
-  "mt5RestApiUrl" text
+  "mt5RestApiUrl" text,
+  "baseCurrency" text,
+  "investorGroups" jsonb,
+  "defaultInvestorGroup" text,
+  "feeTiers" jsonb,
+  "role" text,
+  "permissions" jsonb,
+  "enableIBModule" boolean
 );
 
 create table transactions (

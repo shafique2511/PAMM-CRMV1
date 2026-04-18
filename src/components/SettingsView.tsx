@@ -238,8 +238,30 @@ export function SettingsView({ managers, onAddManager, onUpdateManager, onDelete
     }
   };
 
+  const copyMigrationSql = () => {
+    const migrationSql = `-- Run this in your Supabase SQL Editor if you are experiencing schema errors:
+alter table managers add column "baseCurrency" text;
+alter table managers add column "investorGroups" jsonb;
+alter table managers add column "defaultInvestorGroup" text;
+alter table managers add column "feeTiers" jsonb;
+alter table managers add column "role" text;
+alter table managers add column "permissions" jsonb;
+alter table managers add column "enableIBModule" boolean;`;
+    navigator.clipboard.writeText(migrationSql);
+    alert('Migration SQL copied to clipboard! Paste it into the Supabase SQL Editor and run it.');
+  };
+
   return (
     <div className="space-y-8 max-w-4xl">
+      <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center justify-between">
+        <div>
+          <h4 className="font-semibold text-amber-900 text-sm">Database Schema Sync</h4>
+          <p className="text-amber-700 text-sm">If you see errors when saving managers or changing settings, your Supabase DB may need to be updated with new columns.</p>
+        </div>
+        <button onClick={copyMigrationSql} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap">
+          Copy Migration SQL
+        </button>
+      </div>
       
       {/* Investor Groups Section */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
