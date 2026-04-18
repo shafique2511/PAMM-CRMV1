@@ -15,8 +15,7 @@ export function ManagerProfileView({ currentUser, managerId, onUpdateManager }: 
 
   const handlePasswordChange = async () => {
     if (!newPassword.trim()) return;
-    const hashed = await hashPassword(newPassword);
-    onUpdateManager(managerId, { password: hashed });
+    onUpdateManager(managerId, { password: newPassword });
     setPasswordMessage('Password updated successfully.');
     setNewPassword('');
     setTimeout(() => setPasswordMessage(''), 3000);

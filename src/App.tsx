@@ -573,16 +573,34 @@ create table audit_logs (
   const handleLogin = async (role: 'admin' | 'investor', name: string, username?: string, password?: string) => {
     const hashedAttempt = password ? await hashPassword(password) : '';
     
+    let activeManagers = managers;
+    let activeInvestors = investors;
+
+    // Real-time ping to intercept stale state closures on immediate login execution
+    if (supabase) {
+      try {
+        if (role === 'admin') {
+          const { data } = await supabase.from('managers').select('*');
+          if (data && data.length > 0) activeManagers = data;
+        } else {
+          const { data } = await supabase.from('investors').select('*');
+          if (data && data.length > 0) activeInvestors = data;
+        }
+      } catch (e) {
+        console.error("Login real-time sync failed", e);
+      }
+    }
+
     if (role === 'admin') {
-      const manager = managers.find(m => m.username === username && (m.password === password || m.password === hashedAttempt));
+      const manager = activeManagers.find(m => m.username?.toLowerCase() === username?.toLowerCase() && (m.password === password || m.password === hashedAttempt));
       if (manager) {
-        setUser({ role, name: manager.name, managerRole: manager.role || 'admin', permissions: manager.permissions });
-        logAction('Login', `Manager ${manager.name} logged in`, 'auth');
+        setUser({ role, name: manager.name || 'Admin', managerRole: manager.role || 'admin', permissions: manager.permissions });
+        logAction('Login', `Manager ${manager.name || 'Admin'} logged in`, 'auth');
       } else {
         alert('Invalid manager credentials');
       }
     } else {
-      const investor = investors.find(i => i.investorName.toLowerCase() === name.toLowerCase() && (i.password === password || i.password === hashedAttempt));
+      const investor = activeInvestors.find(i => i.investorName?.toLowerCase() === name?.toLowerCase() && (i.password === password || i.password === hashedAttempt));
       if (investor) {
         setUser({ role, name: investor.investorName });
         setActiveTab('dashboard');
