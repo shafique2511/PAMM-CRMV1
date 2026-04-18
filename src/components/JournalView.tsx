@@ -183,7 +183,7 @@ export function JournalView({ trades, onSyncMT5, totalCapital, readOnly }: { tra
         <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="text-lg font-semibold mb-6 text-slate-900">Cumulative Profit</h3>
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="date" stroke="#64748b" />
@@ -203,7 +203,7 @@ export function JournalView({ trades, onSyncMT5, totalCapital, readOnly }: { tra
           <h3 className="text-lg font-semibold mb-6 text-slate-900">Top Symbols (Profit)</h3>
           {symbolData.length > 0 ? (
             <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={symbolData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                   <XAxis type="number" tickFormatter={(val) => `$${val}`} stroke="#64748b" />
