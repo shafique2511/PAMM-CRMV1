@@ -499,13 +499,13 @@ export default function App() {
 
   const copySql = () => {
     const sql = `-- If you already have these tables, run these ALTER commands instead to add missing columns for new features:
--- alter table managers add column "baseCurrency" text;
--- alter table managers add column "investorGroups" jsonb;
--- alter table managers add column "defaultInvestorGroup" text;
--- alter table managers add column "feeTiers" jsonb;
--- alter table managers add column "role" text;
--- alter table managers add column "permissions" jsonb;
--- alter table managers add column "enableIBModule" boolean;
+-- alter table managers add column if not exists "baseCurrency" text;
+-- alter table managers add column if not exists "investorGroups" jsonb;
+-- alter table managers add column if not exists "defaultInvestorGroup" text;
+-- alter table managers add column if not exists "feeTiers" jsonb;
+-- alter table managers add column if not exists "role" text;
+-- alter table managers add column if not exists "permissions" jsonb;
+-- alter table managers add column if not exists "enableIBModule" boolean;
 
 create table investors (
   id uuid default gen_random_uuid() primary key,

@@ -240,13 +240,13 @@ export function SettingsView({ managers, onAddManager, onUpdateManager, onDelete
 
   const copyMigrationSql = () => {
     const migrationSql = `-- Run this in your Supabase SQL Editor if you are experiencing schema errors:
-alter table managers add column "baseCurrency" text;
-alter table managers add column "investorGroups" jsonb;
-alter table managers add column "defaultInvestorGroup" text;
-alter table managers add column "feeTiers" jsonb;
-alter table managers add column "role" text;
-alter table managers add column "permissions" jsonb;
-alter table managers add column "enableIBModule" boolean;`;
+alter table managers add column if not exists "baseCurrency" text;
+alter table managers add column if not exists "investorGroups" jsonb;
+alter table managers add column if not exists "defaultInvestorGroup" text;
+alter table managers add column if not exists "feeTiers" jsonb;
+alter table managers add column if not exists "role" text;
+alter table managers add column if not exists "permissions" jsonb;
+alter table managers add column if not exists "enableIBModule" boolean;`;
     navigator.clipboard.writeText(migrationSql);
     alert('Migration SQL copied to clipboard! Paste it into the Supabase SQL Editor and run it.');
   };
