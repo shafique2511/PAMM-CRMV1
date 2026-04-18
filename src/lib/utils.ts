@@ -1,14 +1,20 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+export let GLOBAL_CURRENCY = 'USD';
+
+export function setGlobalCurrency(c: string) {
+  GLOBAL_CURRENCY = c;
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(value: number) {
+export function formatCurrency(value: number, currency?: string) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency: currency || GLOBAL_CURRENCY,
   }).format(value);
 }
 

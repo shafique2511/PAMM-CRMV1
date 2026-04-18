@@ -12,18 +12,19 @@ import { InvestorDashboard } from './components/InvestorDashboard';
 import { AffiliatesView } from './components/AffiliatesView';
 import { AuditLogView } from './components/AuditLogView';
 import { Investor, Manager, Transaction, Trade, PeriodHistory, AuditLog } from './types';
-import { Plus, Calculator, Database, Copy, CheckCircle2 } from 'lucide-react';
+import { Plus, Calculator, Database, Copy, CheckCircle2, Menu } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
 const INITIAL_MANAGERS: Manager[] = [
   { id: '1', username: 'admin', password: 'password', name: 'Super Admin' }
 ];
 
-import { hashPassword } from './lib/utils';
+import { hashPassword, setGlobalCurrency } from './lib/utils';
 
 export default function App() {
   const [user, setUser] = useState<{ role: 'admin' | 'investor', name: string, managerRole?: 'admin' | 'manager' | 'read_only' | 'custom', permissions?: any } | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [managers, setManagers] = useState<Manager[]>(INITIAL_MANAGERS);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -34,6 +35,12 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (managers.length > 0 && managers[0].baseCurrency) {
+      setGlobalCurrency(managers[0].baseCurrency);
+    }
+  }, [managers]);
 
   useEffect(() => {
     if (darkMode) {
@@ -658,28 +665,40 @@ create table audit_logs (
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans">
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        isAdmin={isAdmin}
-        managerRole={user?.managerRole}
-        permissions={user?.permissions}
-        enableIBModule={managers[0]?.enableIBModule || false}
-        onLogout={() => setUser(null)}
-      />
+      <div className={`fixed inset-0 bg-slate-900/50 z-20 md:hidden transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsSidebarOpen(false)} />
       
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-8 max-w-7xl mx-auto">
-          <header className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white transition-colors">
-                {isAdmin ? 'PAMM Management' : `Welcome, ${user.name}`}
-              </h2>
-              <p className="text-slate-500 dark:text-slate-400 transition-colors">
-                {isAdmin 
-                  ? 'Manage your investors, capital, and distribute profits.' 
-                  : 'View your investment performance and statements.'}
-              </p>
+      <div className={`fixed inset-y-0 left-0 z-30 w-64 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={(tab) => { setActiveTab(tab); setIsSidebarOpen(false); }} 
+          isAdmin={isAdmin}
+          managerRole={user?.managerRole}
+          permissions={user?.permissions}
+          enableIBModule={managers[0]?.enableIBModule || false}
+          onLogout={() => setUser(null)}
+        />
+      </div>
+      
+      <main className="flex-1 overflow-y-auto w-full">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+          <header className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
+            <div className="flex items-center gap-4">
+              <button 
+                className="md:hidden p-2 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                onClick={() => setIsSidebarOpen(true)}
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white transition-colors flex items-center gap-2">
+                  {isAdmin ? 'PAMM Management' : `Welcome, ${user.name}`}
+                </h2>
+                <p className="hidden md:block text-slate-500 dark:text-slate-400 transition-colors">
+                  {isAdmin 
+                    ? 'Manage your investors, capital, and distribute profits.' 
+                    : 'View your investment performance and statements.'}
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <button 

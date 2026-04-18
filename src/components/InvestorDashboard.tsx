@@ -1,12 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { Investor, PeriodHistory, Transaction, Trade } from '../types';
-import { formatCurrency, evaluatePasswordStrength, hashPassword } from '../lib/utils';
+import { formatCurrency as globalFormatCurrency, evaluatePasswordStrength, hashPassword } from '../lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Shield, ArrowRightLeft, Percent, AlertCircle, CheckCircle2, PieChart as PieChartIcon, Download, Loader2, Key } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 export function InvestorDashboard({ investor, history, transactions, trades = [], onUpdateInvestor, onAddTransaction, allowWithdrawals }: { investor: Investor, history: PeriodHistory[], transactions: Transaction[], trades?: Trade[], onUpdateInvestor?: (id: string, updates: Partial<Investor>) => void, onAddTransaction?: (t: Partial<Transaction>) => void, allowWithdrawals?: boolean }) {
+  const formatCurrency = (value: number) => globalFormatCurrency(value, investor.baseCurrency);
+
   const dashboardRef = useRef<HTMLDivElement>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -460,7 +462,7 @@ export function InvestorDashboard({ investor, history, transactions, trades = []
           <Key className="w-5 h-5 text-slate-500" />
           <h3 className="font-semibold text-slate-900">Account Settings</h3>
         </div>
-        <div className="p-6">
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="max-w-md">
             <h4 className="text-sm font-medium text-slate-700 mb-2">Change Password</h4>
             <div className="flex flex-col gap-3">
@@ -495,6 +497,26 @@ export function InvestorDashboard({ investor, history, transactions, trades = []
                 {passwordMessage}
               </p>
             )}
+          </div>
+          
+          <div className="max-w-md border-t border-slate-200 pt-6 md:border-t-0 md:pt-0 md:border-l md:pl-8">
+            <h4 className="text-sm font-medium text-slate-700 mb-2">Display Currency</h4>
+            <div className="flex items-center gap-3">
+              <select 
+                value={investor.baseCurrency || 'USD'}
+                onChange={e => onUpdateInvestor && onUpdateInvestor(investor.id, { baseCurrency: e.target.value })}
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+              >
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="AUD">AUD (A$)</option>
+                <option value="CAD">CAD (C$)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="CHF">CHF (Fr)</option>
+              </select>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">Personalize the currency formatting on your dashboard.</p>
           </div>
         </div>
       </div>

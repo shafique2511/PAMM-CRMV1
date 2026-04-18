@@ -10,6 +10,7 @@ export interface Investor {
   investorName: string;
   password?: string;
   group?: string;
+  baseCurrency?: string;
   highWaterMark: number;
   startingCapital: number;
   lossCarryover: number;
@@ -48,6 +49,7 @@ export interface Manager {
   name: string;
   role?: 'admin' | 'manager' | 'read_only' | 'custom';
   permissions?: AccessPermissions;
+  baseCurrency?: string;
   mt5Server?: string;
   mt5Login?: string;
   mt5Password?: string;

@@ -34,6 +34,16 @@ export function SettingsView({ managers, onAddManager, onUpdateManager, onDelete
   // Default Fee Setting
   const [defaultFee, setDefaultFee] = useState(mainManager?.defaultFeePercentage ?? 20);
 
+  // Base Currency Setting
+  const [baseCurrency, setBaseCurrency] = useState(mainManager?.baseCurrency || 'USD');
+
+  const handleUpdateCurrency = (newCurrency: string) => {
+    setBaseCurrency(newCurrency);
+    if (mainManager) {
+      onUpdateManager(mainManager.id, { baseCurrency: newCurrency });
+    }
+  };
+
   // Fee Tiers Setting
   const [feeTiers, setFeeTiers] = useState<Manager['feeTiers']>(mainManager?.feeTiers || []);
   const [newTierMinAmt, setNewTierMinAmt] = useState('');
@@ -370,26 +380,49 @@ export function SettingsView({ managers, onAddManager, onUpdateManager, onDelete
           </div>
         </div>
         
-        <div className="mb-6 max-w-xs">
-          <label className="block text-sm font-medium text-slate-700 mb-1">Default Performance Fee (%)</label>
-          <div className="flex gap-3">
-            <input 
-              type="number" 
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              value={defaultFee}
-              onChange={e => setDefaultFee(parseFloat(e.target.value) || 0)}
-            />
-            <button 
-              onClick={() => {
-                if (mainManager) onUpdateManager(mainManager.id, { defaultFeePercentage: defaultFee });
-                alert('Default fee updated successfully.');
-              }}
-              className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shrink-0 font-medium"
-            >
-              Save
-            </button>
+        <div className="flex flex-col md:flex-row gap-6 mb-6">
+          <div className="flex-1 max-w-xs">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Default Performance Fee (%)</label>
+            <div className="flex gap-3">
+              <input 
+                type="number" 
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                value={defaultFee}
+                onChange={e => setDefaultFee(parseFloat(e.target.value) || 0)}
+              />
+              <button 
+                onClick={() => {
+                  if (mainManager) onUpdateManager(mainManager.id, { defaultFeePercentage: defaultFee });
+                  alert('Default fee updated successfully.');
+                }}
+                className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shrink-0 font-medium"
+              >
+                Save
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">This fee will be applied to new investors by default.</p>
           </div>
-          <p className="text-xs text-slate-500 mt-1">This fee will be applied to new investors by default.</p>
+          
+          <div className="flex-1 max-w-xs">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Platform Base Currency</label>
+            <div className="flex gap-3">
+              <select 
+                title="Global Formatting Base Currency"
+                value={baseCurrency}
+                onChange={e => handleUpdateCurrency(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+              >
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="AUD">AUD (A$)</option>
+                <option value="CAD">CAD (C$)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="CHF">CHF (Fr)</option>
+              </select>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">Default formatting currency across the platform.</p>
+          </div>
         </div>
 
         <div className="mb-6 border-t border-slate-200 pt-6">

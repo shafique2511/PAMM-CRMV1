@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction, Investor } from '../types';
 import { formatCurrency } from '../lib/utils';
-import { Clock, Search, ArrowUpRight, Users } from 'lucide-react';
+import { Clock, Search, ArrowUpRight, Users, CheckCircle2, XCircle } from 'lucide-react';
 
 export function ManagerWithdrawalsView({ transactions, investors, onUpdateStatus, readOnly }: { transactions: Transaction[], investors?: Investor[], onUpdateStatus?: (id: string, status: 'completed' | 'rejected') => void, readOnly?: boolean }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -119,11 +119,14 @@ export function ManagerWithdrawalsView({ transactions, investors, onUpdateStatus
                     <td className="px-6 py-4 font-bold text-slate-900 text-right">{formatCurrency(tx.amount)}</td>
                     <td className="px-6 py-4 text-slate-500">{tx.notes || '-'}</td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
                         ${tx.status === 'pending' ? 'bg-amber-100 text-amber-800' : 
                           tx.status === 'rejected' ? 'bg-red-100 text-red-800' :
                           'bg-emerald-100 text-emerald-800'}`}>
-                        {tx.status}
+                        {tx.status === 'pending' && <Clock className="w-3 h-3" />}
+                        {tx.status === 'rejected' && <XCircle className="w-3 h-3" />}
+                        {(!tx.status || tx.status === 'completed') && <CheckCircle2 className="w-3 h-3" />}
+                        {tx.status || 'completed'}
                       </span>
                     </td>
                     {tab === 'investor' && (
