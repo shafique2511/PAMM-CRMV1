@@ -611,8 +611,44 @@ create table audit_logs (
     }
   };
 
+  const handleResetPassword = async (role: 'admin' | 'investor', identifier: string, newPassword: string): Promise<boolean> => {
+    const hashed = await hashPassword(newPassword);
+
+    if (role === 'admin') {
+      const manager = managers.find(m => m.username?.toLowerCase() === identifier.toLowerCase());
+      if (manager) {
+        setManagers(prev => prev.map(m => m.id === manager.id ? { ...m, password: hashed } : m));
+        if (supabase) {
+          try {
+            await supabase.from('managers').update({ password: hashed }).eq('id', manager.id);
+          } catch (e) {
+            console.error("Failed to reset manager password", e);
+          }
+        }
+        logAction('Reset Password', `Manager ${manager.username} reset password`, 'auth');
+        return true;
+      }
+    } else {
+      const investor = investors.find(i => i.investorName?.toLowerCase() === identifier.toLowerCase());
+      if (investor) {
+        setInvestors(prev => prev.map(inv => inv.id === investor.id ? { ...inv, password: hashed } : inv));
+        if (supabase) {
+          try {
+            await supabase.from('investors').update({ password: hashed }).eq('id', investor.id);
+          } catch (e) {
+            console.error("Failed to reset investor password", e);
+          }
+        }
+        logAction('Reset Password', `Investor ${investor.investorName} reset password`, 'auth');
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
   if (!user) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={handleLogin} onResetPassword={handleResetPassword} />;
   }
 
   if (!supabase) {
