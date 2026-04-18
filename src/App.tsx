@@ -22,7 +22,14 @@ const INITIAL_MANAGERS: Manager[] = [
 import { hashPassword, setGlobalCurrency } from './lib/utils';
 
 export default function App() {
-  const [user, setUser] = useState<{ role: 'admin' | 'investor', name: string, managerRole?: 'admin' | 'manager' | 'read_only' | 'custom', permissions?: any } | null>(null);
+  const [user, setUser] = useState<{ role: 'admin' | 'investor', name: string, managerRole?: 'admin' | 'manager' | 'read_only' | 'custom', permissions?: any } | null>(() => {
+    try {
+      const saved = localStorage.getItem('pamm_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [investors, setInvestors] = useState<Investor[]>([]);
@@ -35,6 +42,14 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('pamm_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('pamm_user');
+    }
+  }, [user]);
 
   useEffect(() => {
     if (managers.length > 0 && managers[0].baseCurrency) {
@@ -679,7 +694,7 @@ create table audit_logs (
         />
       </div>
       
-      <main className="flex-1 overflow-y-auto w-full">
+      <main className="flex-1 min-w-0 overflow-y-auto">
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <header className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 gap-4">
             <div className="flex items-center gap-4">
