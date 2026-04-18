@@ -406,15 +406,22 @@ export default function App() {
 
       const effectiveFeePercentage = inv.customFeePercentage ?? inv.feePercentage ?? 20;
 
-      if (grossValue > inv.highWaterMark) {
-        const taxableProfit = grossValue - inv.highWaterMark;
+      // Fallback: If HWM is 0 but they have starting capital (from previously hitting the bug), treat HWM as starting capital.
+      const safeHWM = (inv.highWaterMark === 0 && inv.startingCapital > 0) ? inv.startingCapital : inv.highWaterMark;
+
+      if (grossValue > safeHWM) {
+        const taxableProfit = grossValue - safeHWM;
         yourFee = taxableProfit * (effectiveFeePercentage / 100);
       }
 
       const netProfit = individualProfitShare - yourFee;
       const reinvestAmt = netProfit - inv.cashPayout;
       const endingCapital = inv.startingCapital + netProfit - inv.cashPayout;
-      const unpaidFee = inv.unpaidFee + yourFee - inv.feeCollected;
+      // Do NOT mutate unpaidFee multiplicatively during calculatePeriod.
+      // UnpaidFee is a ledger baseline state that is only appended to during rolloverPeriod via yourFee.
+      // The current UI shows 'unpaidFee' which includes historical debts. 
+      // If we want it to reflect total owed including this period's estimation, we should compute it on the fly, NOT save it sequentially here.
+      // For now, we will simply not mutate it so it doesn't infinitely accumulate on every click.
 
       return {
         ...inv,
@@ -424,7 +431,7 @@ export default function App() {
         netProfit,
         reinvestAmt,
         endingCapital,
-        unpaidFee
+        unpaidFee: inv.unpaidFee // Retain current historical state, do not increment here.
       };
     });
 
@@ -473,6 +480,7 @@ export default function App() {
           ...inv,
           startingCapital: inv.endingCapital,
           highWaterMark: newHWM,
+          unpaidFee: inv.unpaidFee + (inv.yourFee || 0),
           individualProfitShare: 0,
           yourFee: 0,
           netProfit: 0,

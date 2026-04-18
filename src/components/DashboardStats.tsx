@@ -19,7 +19,7 @@ export function DashboardStats({ investors, transactions, trades = [], history =
 
   const totalCapital = investors.reduce((sum, inv) => sum + inv.startingCapital, 0);
   const totalEndingCapital = investors.reduce((sum, inv) => sum + inv.endingCapital, 0);
-  const totalUnpaidFees = investors.reduce((sum, inv) => sum + inv.unpaidFee, 0);
+  const totalUnpaidFees = investors.reduce((sum, inv) => sum + (inv.unpaidFee || 0) + (inv.yourFee || 0), 0);
   const totalInvestors = investors.length;
 
   const managerWithdrawalTxs = transactions.filter(t => t.type === 'manager_withdrawal');

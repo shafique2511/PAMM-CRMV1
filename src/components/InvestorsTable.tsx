@@ -70,6 +70,17 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
     setEditForm(prev => {
       const updates = { ...prev, [field]: value };
       
+      // Auto-initialize highWaterMark when startingCapital changes to prevent false net profit calculations
+      if (field === 'startingCapital') {
+        const newCap = Number(value) || 0;
+        updates.endingCapital = newCap + (prev.netProfit || 0) - (prev.cashPayout || 0);
+        
+        // If HWM is 0 or less than the new starting capital and they have no profit yet, sync it.
+        if (prev.highWaterMark === 0 || (prev.highWaterMark < newCap && (!prev.netProfit || prev.netProfit === 0))) {
+          updates.highWaterMark = newCap;
+        }
+      }
+
       // Auto-calculate Reinvest / Cash Payout
       if (field === 'cashPayout') {
         const payout = Number(value) || 0;
