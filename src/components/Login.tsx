@@ -35,7 +35,7 @@ export function Login({ onLogin }: LoginProps) {
           <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <PieChart className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Atomic PAMM</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Que PAMM</h1>
           <p className="text-slate-400 mt-2">Sign in to your account</p>
         </div>
 

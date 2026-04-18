@@ -11,6 +11,7 @@ import { JournalView } from './components/JournalView';
 import { InvestorDashboard } from './components/InvestorDashboard';
 import { AffiliatesView } from './components/AffiliatesView';
 import { AuditLogView } from './components/AuditLogView';
+import { ManagerProfileView } from './components/ManagerProfileView';
 import { Investor, Manager, Transaction, Trade, PeriodHistory, AuditLog } from './types';
 import { Plus, Calculator, Database, Copy, CheckCircle2, Menu } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -854,6 +855,14 @@ create table audit_logs (
 
           {activeTab === 'audit' && isAdmin && hasPermission('canViewAudit', user.managerRole === 'admin') && (
             <AuditLogView logs={auditLogs} />
+          )}
+
+          {activeTab === 'profile' && isAdmin && user?.managerRole && (
+            <ManagerProfileView 
+              currentUser={user}
+              managerId={managers.find(m => m.name === user.name)?.id || managers[0]?.id || ''}
+              onUpdateManager={handleUpdateManager}
+            />
           )}
 
           {activeTab === 'settings' && isAdmin && hasPermission('canManageSettings', user.managerRole === 'admin') && (

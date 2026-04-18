@@ -40,7 +40,7 @@ export function InvoiceModal({ investor, onClose }: InvoiceModalProps) {
         <div className="p-10 overflow-y-auto print:p-0 bg-white text-slate-900">
           <div className="flex justify-between items-start mb-12">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-1">Atomic PAMM</h1>
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-1">Que PAMM</h1>
               <p className="text-slate-500">Investment Management Statement</p>
             </div>
             <div className="text-right">

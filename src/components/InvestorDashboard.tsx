@@ -513,6 +513,7 @@ export function InvestorDashboard({ investor, history, transactions, trades = []
                 <option value="AUD">AUD (A$)</option>
                 <option value="CAD">CAD (C$)</option>
                 <option value="JPY">JPY (¥)</option>
+                <option value="MYR">MYR (RM)</option>
                 <option value="CHF">CHF (Fr)</option>
               </select>
             </div>

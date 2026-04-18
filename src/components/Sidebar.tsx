@@ -7,7 +7,8 @@ import {
   ArrowRightLeft,
   LogOut,
   BookOpen,
-  Shield
+  Shield,
+  User
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -40,6 +41,7 @@ export function Sidebar({ activeTab, setActiveTab, isAdmin, managerRole, permiss
     { id: 'reports', label: 'Reports', icon: PieChart, show: isAdmin && hasPermission('canViewReports', true) },
     { id: 'audit', label: 'Audit Logs', icon: Shield, show: isAdmin && hasPermission('canViewAudit', managerRole === 'admin') },
     { id: 'settings', label: 'Settings', icon: Settings, show: isAdmin && hasPermission('canManageSettings', managerRole === 'admin') },
+    { id: 'profile', label: 'My Profile', icon: User, show: isAdmin },
   ].filter(item => item.show);
 
   return (
@@ -49,7 +51,7 @@ export function Sidebar({ activeTab, setActiveTab, isAdmin, managerRole, permiss
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <PieChart className="w-5 h-5 text-white" />
           </div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Atomic PAMM</h1>
+          <h1 className="text-xl font-bold text-white tracking-tight">Que PAMM</h1>
         </div>
       </div>
       
