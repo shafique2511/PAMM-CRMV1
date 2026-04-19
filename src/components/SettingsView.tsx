@@ -284,8 +284,8 @@ alter table trades add column if not exists "exitReason" text;
 alter table trades add column if not exists notes text;
 
 -- 5. Ensure tables exist (General Setup)
--- create table if not exists audit_logs (id text primary key, timestamp text, "userId" text, "userName" text, action text, details text, type text);
--- create table if not exists period_history (id text primary key, date text, "totalProfit" numeric, "investorSnapshots" jsonb);
+create table if not exists audit_logs (id text primary key, timestamp text, "userId" text, "userName" text, action text, details text, type text);
+create table if not exists period_history (id text primary key, date text, "totalProfit" numeric, "investorSnapshots" jsonb);
 `;
     navigator.clipboard.writeText(migrationSql);
     alert('Full Migration SQL copied to clipboard! Paste it into the Supabase SQL Editor to sync your records.');
