@@ -11,6 +11,8 @@ export interface Investor {
   password?: string;
   group?: string;
   baseCurrency?: string;
+  status?: 'active' | 'suspended' | 'closed';
+  joinedAt?: string;
   highWaterMark: number;
   startingCapital: number;
   lossCarryover: number;

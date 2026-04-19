@@ -12,8 +12,9 @@ import { InvestorDashboard } from './components/InvestorDashboard';
 import { AffiliatesView } from './components/AffiliatesView';
 import { AuditLogView } from './components/AuditLogView';
 import { ManagerProfileView } from './components/ManagerProfileView';
+import { AddInvestorModal } from './components/AddInvestorModal';
 import { Investor, Manager, Transaction, Trade, PeriodHistory, AuditLog } from './types';
-import { Plus, Calculator, Database, Copy, CheckCircle2, Menu } from 'lucide-react';
+import { Plus, Calculator, Database, Copy, CheckCircle2, Menu, Search, Filter } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
 const INITIAL_MANAGERS: Manager[] = [
@@ -58,6 +59,8 @@ export default function App() {
     setPeriodProfit(totalStartingEquity > 0 ? val - totalStartingEquity : val);
   };
   const [showRolloverConfirm, setShowRolloverConfirm] = useState(false);
+  const [showAddInvestor, setShowAddInvestor] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
@@ -111,6 +114,18 @@ export default function App() {
         await supabase.from('audit_logs').insert([newLog]);
       } catch (e) {
         console.error("Failed to save audit log", e);
+      }
+    }
+  };
+
+  const handleClearAuditLogs = async () => {
+    setAuditLogs([]);
+    if (supabase) {
+      try {
+        await supabase.from('audit_logs').delete().neq('id', '0');
+        logAction('Clear Audit Logs', 'All audit logs were cleared by the administrator', 'system');
+      } catch (e) {
+        console.error("Failed to clear audit logs", e);
       }
     }
   };
@@ -184,34 +199,23 @@ export default function App() {
     }
   };
 
-  const handleAddInvestor = async () => {
-    const defaultFee = managers[0]?.defaultFeePercentage ?? 20;
-    const defaultGroup = managers[0]?.defaultInvestorGroup || 'Default';
-    const defaultPassword = 'password123';
-    const hashedPwd = await hashPassword(defaultPassword);
+  const handleAddInvestor = async (investorData: Partial<Investor>) => {
+    let hashedPwd = investorData.password || 'password123';
+    hashedPwd = await hashPassword(hashedPwd);
     
     const newInvestor = {
-      investorName: 'New Investor',
+      ...investorData,
       password: hashedPwd,
-      group: defaultGroup,
-      highWaterMark: 0,
-      startingCapital: 0,
-      lossCarryover: 0,
-      sharePercentage: 0,
       individualProfitShare: 0,
-      feePercentage: defaultFee,
       yourFee: 0,
       netProfit: 0,
       reinvestAmt: 0,
       cashPayout: 0,
-      endingCapital: 0,
-      qrCode: '',
-      bankAccount: '',
       feeCollected: 0,
       unpaidFee: 0,
-    };
+    } as Investor;
 
-    logAction('Add Investor', 'Created a new investor profile', 'investor');
+    logAction('Add Investor', `Onboarded new investor: ${investorData.investorName}`, 'investor');
     if (supabase) {
       try {
         const { data } = await supabase.from('investors').insert([newInvestor]).select();
@@ -220,6 +224,8 @@ export default function App() {
         console.error("Failed to add investor", e);
         alert("Failed to add investor to database.");
       }
+    } else {
+      setInvestors([...investors, { ...newInvestor, id: Math.random().toString(36).substr(2, 9) }]);
     }
   };
 
@@ -245,7 +251,16 @@ export default function App() {
     if (updates.password) {
       finalUpdates.password = await hashPassword(updates.password);
     }
+    
     setManagers(prev => prev.map(m => m.id === id ? { ...m, ...finalUpdates } : m));
+    
+    // Sync local user session
+    if (user && managers.find(m => m.id === id)?.name === user.name) {
+      if (finalUpdates.name) {
+        setUser(prev => prev ? { ...prev, name: finalUpdates.name! } : null);
+      }
+    }
+
     logAction('Update Settings', 'Updated manager settings', 'system');
     if (supabase) {
       try {
@@ -544,26 +559,32 @@ export default function App() {
   };
 
   const copySql = () => {
-    const sql = `-- If you already have these tables, run these ALTER commands instead to add missing columns for new features:
--- alter table managers add column if not exists "baseCurrency" text;
--- alter table managers add column if not exists "investorGroups" jsonb;
--- alter table managers add column if not exists "defaultInvestorGroup" text;
--- alter table managers add column if not exists "feeTiers" jsonb;
--- alter table managers add column if not exists "role" text;
--- alter table managers add column if not exists "permissions" jsonb;
--- alter table managers add column if not exists "enableIBModule" boolean;
+    const sql = `-- Comprehensive Database Setup for PAMM CRM
+-- If you already have these tables, run these ALTER commands to add missing fields:
+-- alter table investors add column if not exists "status" text default 'active';
+-- alter table investors add column if not exists "joinedAt" text;
+-- alter table investors add column if not exists "baseCurrency" text;
+-- alter table investors add column if not exists "customFeePercentage" numeric;
+-- alter table investors add column if not exists "referredBy" text;
+-- alter table investors add column if not exists "ibCommissionRate" numeric;
+-- alter table managers add column if not exists "allowInvestorWithdrawals" boolean;
+-- alter table managers add column if not exists "defaultFeePercentage" numeric;
 
-create table investors (
+create table if not exists investors (
   id uuid default gen_random_uuid() primary key,
   "investorName" text,
   "password" text,
   "group" text,
+  "status" text default 'active',
+  "joinedAt" text,
+  "baseCurrency" text,
   "highWaterMark" numeric,
   "startingCapital" numeric,
   "lossCarryover" numeric,
   "sharePercentage" numeric,
   "individualProfitShare" numeric,
   "feePercentage" numeric,
+  "customFeePercentage" numeric,
   "yourFee" numeric,
   "netProfit" numeric,
   "reinvestAmt" numeric,
@@ -572,10 +593,12 @@ create table investors (
   "qrCode" text,
   "bankAccount" text,
   "feeCollected" numeric,
-  "unpaidFee" numeric
+  "unpaidFee" numeric,
+  "referredBy" text,
+  "ibCommissionRate" numeric
 );
 
-create table managers (
+create table if not exists managers (
   id uuid default gen_random_uuid() primary key,
   username text,
   password text,
@@ -590,12 +613,14 @@ create table managers (
   "feeTiers" jsonb,
   "role" text,
   "permissions" jsonb,
-  "enableIBModule" boolean
+  "enableIBModule" boolean,
+  "allowInvestorWithdrawals" boolean,
+  "defaultFeePercentage" numeric
 );
 
-create table transactions (
+create table if not exists transactions (
   id uuid default gen_random_uuid() primary key,
-  "investorId" uuid,
+  "investorId" uuid references investors(id) on delete cascade,
   type text,
   amount numeric,
   date text,
@@ -603,7 +628,7 @@ create table transactions (
   notes text
 );
 
-create table trades (
+create table if not exists trades (
   id uuid default gen_random_uuid() primary key,
   ticket text,
   "openTime" text,
@@ -614,17 +639,21 @@ create table trades (
   "openPrice" numeric,
   "closePrice" numeric,
   profit numeric,
+  sl numeric,
+  tp numeric,
+  "entryReason" text,
+  "exitReason" text,
   notes text
 );
 
-create table period_history (
+create table if not exists period_history (
   id uuid default gen_random_uuid() primary key,
   date text,
   "totalProfit" numeric,
   "investorSnapshots" jsonb
 );
 
-create table audit_logs (
+create table if not exists audit_logs (
   id uuid default gen_random_uuid() primary key,
   timestamp text,
   "userId" text,
@@ -778,9 +807,13 @@ create table audit_logs (
   }
 
   const isAdmin = user.role === 'admin';
-  const visibleInvestors = isAdmin 
+  const visibleInvestors = (isAdmin 
     ? investors 
-    : investors.filter(inv => inv.investorName.toLowerCase() === user.name.toLowerCase());
+    : investors.filter(inv => inv.investorName.toLowerCase() === user.name.toLowerCase()))
+    .filter(inv => 
+      inv.investorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.group?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
   const currentInvestor = !isAdmin ? visibleInvestors[0] : null;
 
   const hasPermission = (key: string, defaultForRole: boolean) => {
@@ -848,8 +881,8 @@ create table audit_logs (
               </button>
               {isAdmin && activeTab === 'investors' && !isReadOnly('canEditInvestors') && (
                 <button 
-                  onClick={handleAddInvestor}
-                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 font-medium transition-colors shadow-sm"
+                  onClick={() => setShowAddInvestor(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 border border-blue-500 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm shadow-blue-500/20"
                 >
                   <Plus className="w-4 h-4" />
                   Add Investor
@@ -971,6 +1004,41 @@ create table audit_logs (
                 </div>
               )}
 
+              {isAdmin && (
+                <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Search name or group..."
+                      className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm text-sm dark:text-white"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1 shrink-0">
+                      <Filter className="w-3 h-3" /> Quick Filter:
+                    </span>
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className={`px-3 py-1 text-xs font-semibold rounded-full border transition-all shrink-0 ${searchQuery === '' ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 hover:border-blue-400'}`}
+                    >
+                      All Accounts
+                    </button>
+                    {managers[0]?.investorGroups?.map(group => (
+                      <button 
+                        key={group}
+                        onClick={() => setSearchQuery(group)}
+                        className={`px-3 py-1 text-xs font-semibold rounded-full border transition-all shrink-0 ${searchQuery === group ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 hover:border-blue-400'}`}
+                      >
+                        {group}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <InvestorsTable 
                 investors={visibleInvestors} 
                 availableGroups={managers[0]?.investorGroups || ['Default', 'VIP', 'Standard']}
@@ -1024,13 +1092,16 @@ create table audit_logs (
           )}
 
           {activeTab === 'audit' && isAdmin && hasPermission('canViewAudit', user.managerRole === 'admin') && (
-            <AuditLogView logs={auditLogs} />
+            <AuditLogView logs={auditLogs} onClearLogs={handleClearAuditLogs} />
           )}
 
           {activeTab === 'profile' && isAdmin && user?.managerRole && (
             <ManagerProfileView 
-              currentUser={user}
-              managerId={managers.find(m => m.name === user.name)?.id || managers[0]?.id || ''}
+              manager={managers.find(m => m.username === user.name) || managers[0]}
+              investors={investors}
+              transactions={transactions}
+              trades={trades}
+              auditLogs={auditLogs}
               onUpdateManager={handleUpdateManager}
             />
           )}
@@ -1045,6 +1116,15 @@ create table audit_logs (
           )}
         </div>
       </main>
+
+      {showAddInvestor && (
+        <AddInvestorModal 
+          onClose={() => setShowAddInvestor(false)}
+          onAdd={handleAddInvestor}
+          managers={managers}
+          availableGroups={managers[0]?.investorGroups || ['Default']}
+        />
+      )}
     </div>
   );
 }
