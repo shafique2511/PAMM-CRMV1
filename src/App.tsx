@@ -589,6 +589,13 @@ export default function App() {
 -- alter table managers add column if not exists "allowInvestorWithdrawals" boolean;
 -- alter table managers add column if not exists "defaultFeePercentage" numeric;
 -- alter table managers add column if not exists "showTradingJournalToInvestors" boolean;
+-- alter table managers add column if not exists "brandName" text;
+-- alter table managers add column if not exists "supportEmail" text;
+-- alter table managers add column if not exists "baseCurrency" text;
+-- alter table managers add column if not exists "investorGroups" jsonb;
+-- alter table managers add column if not exists "defaultInvestorGroup" text;
+-- alter table managers add column if not exists "feeTiers" jsonb;
+-- alter table managers add column if not exists "enableIBModule" boolean;
 
 create table if not exists investors (
   id uuid default gen_random_uuid() primary key,
@@ -641,7 +648,9 @@ create table if not exists managers (
   "enableIBModule" boolean,
   "allowInvestorWithdrawals" boolean,
   "showTradingJournalToInvestors" boolean,
-  "defaultFeePercentage" numeric
+  "defaultFeePercentage" numeric,
+  "brandName" text,
+  "supportEmail" text
 );
 
 create table if not exists transactions (

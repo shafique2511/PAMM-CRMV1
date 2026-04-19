@@ -68,6 +68,8 @@ export interface Manager {
   showTradingJournalToInvestors?: boolean;
   feeTiers?: FeeTier[];
   defaultFeePercentage?: number;
+  brandName?: string;
+  supportEmail?: string;
 }
 
 export interface Transaction {
