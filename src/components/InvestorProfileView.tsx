@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Investor } from '../types';
-import { User, Key, Building2, QrCode, Save, CheckCircle2, IdentificationCard, Phone, MapPin, Flag, Mail, Bell } from 'lucide-react';
-import { hashPassword } from '../lib/utils';
+import { User, Key, Building2, QrCode, Save, CheckCircle2, Phone, Flag, Mail, Bell } from 'lucide-react';
+import { hashPassword, formatCurrency } from '../lib/utils';
 
 export function InvestorProfileView({ investor, onUpdateInvestor }: { investor: Investor, onUpdateInvestor: (id: string, updates: Partial<Investor>) => void }) {
   const [newPassword, setNewPassword] = useState('');
@@ -10,9 +10,8 @@ export function InvestorProfileView({ investor, onUpdateInvestor }: { investor: 
   const [bankAccount, setBankAccount] = useState(investor.bankAccount || '');
   const [qrCodeData, setQrCodeData] = useState(investor.qrCode || '');
   const [phone, setPhone] = useState(investor.phone || '');
-  const [address, setAddress] = useState(investor.address || '');
+  const [email, setEmail] = useState(investor.email || '');
   const [country, setCountry] = useState(investor.country || '');
-  const [idNumber, setIdNumber] = useState(investor.idNumber || '');
   const [emailNotifications, setEmailNotifications] = useState(investor.emailNotifications || false);
 
   const [statusMessage, setStatusMessage] = useState('');
@@ -22,9 +21,8 @@ export function InvestorProfileView({ investor, onUpdateInvestor }: { investor: 
       bankAccount,
       qrCode: qrCodeData,
       phone,
-      address,
+      email,
       country,
-      idNumber,
       emailNotifications
     });
     setStatusMessage('Profile updated successfully.');
@@ -50,7 +48,7 @@ export function InvestorProfileView({ investor, onUpdateInvestor }: { investor: 
           </div>
           <div>
             <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{investor.investorName}</h2>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Manage your personal details, KYC, and payment preferences</p>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Manage your personal details, alerts, and payment preferences</p>
           </div>
         </div>
         <button 
@@ -69,8 +67,35 @@ export function InvestorProfileView({ investor, onUpdateInvestor }: { investor: 
         </div>
       )}
 
+      {/* Top Stats Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500 opacity-10 rounded-full blur-xl -mr-6 -mt-6"></div>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 relative z-10">Current Balance</span>
+          <span className="text-2xl font-black text-slate-900 dark:text-white relative z-10">{formatCurrency(investor.endingCapital, investor.baseCurrency || 'USD')}</span>
+        </div>
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500 opacity-10 rounded-full blur-xl -mr-6 -mt-6"></div>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 relative z-10">Total Fees Paid</span>
+          <span className="text-2xl font-black text-emerald-600 dark:text-emerald-500 relative z-10">{formatCurrency(investor.feeCollected, investor.baseCurrency || 'USD')}</span>
+        </div>
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-500 opacity-10 rounded-full blur-xl -mr-6 -mt-6"></div>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 relative z-10">Account Status</span>
+          <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 capitalize relative z-10 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+            {investor.status || 'Active'}
+          </span>
+        </div>
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500 opacity-10 rounded-full blur-xl -mr-6 -mt-6"></div>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 relative z-10">Member Tier</span>
+          <span className="text-2xl font-black text-amber-600 dark:text-amber-500 capitalize relative z-10">{investor.memberTier || investor.group || 'Standard'}</span>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Personal & KYC Info */}
+        {/* Personal & Info */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3 mb-6">
             <User className="w-5 h-5 text-blue-500" />
@@ -78,6 +103,20 @@ export function InvestorProfileView({ investor, onUpdateInvestor }: { investor: 
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
+              <div className="relative">
+                <Mail className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="email" 
+                  placeholder="investor@example.com"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm dark:text-white"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone Number</label>
               <div className="relative">
@@ -91,38 +130,8 @@ export function InvestorProfileView({ investor, onUpdateInvestor }: { investor: 
                 />
               </div>
             </div>
-            
+
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID / Passport Number</label>
-              <div className="relative">
-                <span className="w-5 h-5 flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                   <User className="w-4 h-4" />
-                </span>
-                <input 
-                  type="text" 
-                  placeholder="National ID or Passport"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm dark:text-white"
-                  value={idNumber}
-                  onChange={e => setIdNumber(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Street Address</label>
-              <div className="relative">
-                <MapPin className="w-5 h-5 absolute left-3 top-4 text-slate-400" />
-                <textarea 
-                  rows={2}
-                  placeholder="Full Residential Address"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm dark:text-white resize-none"
-                  value={address}
-                  onChange={e => setAddress(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Country</label>
               <div className="relative">
                 <Flag className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

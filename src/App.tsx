@@ -582,9 +582,9 @@ export default function App() {
 -- alter table investors add column if not exists "referredBy" text;
 -- alter table investors add column if not exists "ibCommissionRate" numeric;
 -- alter table investors add column if not exists "phone" text;
--- alter table investors add column if not exists "address" text;
+-- alter table investors add column if not exists "email" text;
 -- alter table investors add column if not exists "country" text;
--- alter table investors add column if not exists "idNumber" text;
+-- alter table investors add column if not exists "memberTier" text;
 -- alter table investors add column if not exists "emailNotifications" boolean;
 -- alter table managers add column if not exists "allowInvestorWithdrawals" boolean;
 -- alter table managers add column if not exists "defaultFeePercentage" numeric;
@@ -597,10 +597,10 @@ create table if not exists investors (
   "group" text,
   "status" text default 'active',
   "joinedAt" text,
+  "email" text,
   "phone" text,
-  "address" text,
   "country" text,
-  "idNumber" text,
+  "memberTier" text,
   "emailNotifications" boolean,
   "baseCurrency" text,
   "highWaterMark" numeric,

@@ -13,10 +13,10 @@ export interface Investor {
   baseCurrency?: string;
   status?: 'active' | 'suspended' | 'closed';
   joinedAt?: string;
+  email?: string;
   phone?: string;
-  address?: string;
   country?: string;
-  idNumber?: string;
+  memberTier?: string;
   emailNotifications?: boolean;
   highWaterMark: number;
   startingCapital: number;
