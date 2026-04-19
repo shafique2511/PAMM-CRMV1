@@ -254,6 +254,7 @@ alter table managers add column if not exists "defaultFeePercentage" numeric;
 
 -- 2. Investors Table Updates
 alter table investors add column if not exists "status" text default 'active';
+alter table investors add column if not exists "group" text;
 alter table investors add column if not exists "joinedAt" text;
 alter table investors add column if not exists "baseCurrency" text;
 alter table investors add column if not exists "customFeePercentage" numeric;

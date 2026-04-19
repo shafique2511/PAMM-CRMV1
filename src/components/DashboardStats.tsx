@@ -42,9 +42,12 @@ export function DashboardStats({ investors, transactions, trades = [], history =
       onAddTransaction({
         type: 'manager_withdrawal',
         amount,
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toISOString(),
         status: 'completed',
-        notes: withdrawNotes || 'Dashboard Withdrawal'
+        notes: withdrawNotes || 'Dashboard Withdrawal',
+        referenceId: `TX-MGR-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+        method: 'Internal Transfer',
+        category: 'Internal'
       });
       setShowWithdrawModal(false);
       setWithdrawAmount('');

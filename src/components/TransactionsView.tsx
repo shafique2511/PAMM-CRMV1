@@ -4,17 +4,19 @@ import { formatCurrency } from '../lib/utils';
 import { 
   Plus, ArrowDownCircle, ArrowUpCircle, Wallet, Search, Filter, 
   ArrowUpDown, Download, CheckCircle2, XCircle, Clock, Hash, 
-  CreditCard, Tag, ExternalLink, MoreVertical, X, Eye, FileText, Shield
+  CreditCard, Tag, ExternalLink, MoreVertical, X, Eye, FileText, Shield, RotateCcw
 } from 'lucide-react';
 
 type SortKey = keyof Transaction | 'investorName';
+
+const generateRefId = () => `TX-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
 export function TransactionsView({ transactions, investors, onAddTransaction, onUpdateStatus, readOnly }: { transactions: Transaction[], investors: Investor[], onAddTransaction: (t: Partial<Transaction>) => void, onUpdateStatus?: (id: string, status: 'completed' | 'rejected') => void, readOnly?: boolean }) {
   const [type, setType] = useState<Transaction['type'] | 'all'>('deposit');
   const [amount, setAmount] = useState('');
   const [investorId, setInvestorId] = useState('');
   const [notes, setNotes] = useState('');
-  const [referenceId, setReferenceId] = useState('');
+  const [referenceId, setReferenceId] = useState(generateRefId());
   const [method, setMethod] = useState('');
   const [category, setCategory] = useState<Transaction['category']>('Bank');
   
@@ -66,7 +68,7 @@ export function TransactionsView({ transactions, investors, onAddTransaction, on
     
     setAmount(''); 
     setNotes(''); 
-    setReferenceId(''); 
+    setReferenceId(generateRefId()); 
     setMethod('');
     setConfirmingWithdrawal(false);
   };
@@ -283,7 +285,16 @@ export function TransactionsView({ transactions, investors, onAddTransaction, on
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reference ID</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-between">
+                Reference ID
+                <button 
+                  onClick={() => setReferenceId(generateRefId())}
+                  className="text-blue-600 hover:text-blue-700 hover:scale-110 mb-0.5 transition-all"
+                  title="Generate New ID"
+                >
+                  <RotateCcw className="w-2.5 h-2.5" />
+                </button>
+              </label>
               <div className="relative">
                 <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
