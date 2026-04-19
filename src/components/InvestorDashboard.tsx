@@ -62,8 +62,9 @@ export function InvestorDashboard({ investor, history, transactions, trades = []
         logging: false,
         backgroundColor: '#ffffff',
         onclone: (clonedDoc, element) => {
-          // Force background to white for the capture target
+          // Force background to white and apply legacy color overrides for the capture target
           if (element) {
+            element.classList.add('pdf-capture');
             element.style.backgroundColor = '#ffffff';
             element.style.padding = '20px'; // Add some padding for the PDF
           }

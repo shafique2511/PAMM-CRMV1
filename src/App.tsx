@@ -20,7 +20,7 @@ const INITIAL_MANAGERS: Manager[] = [
   { id: '1', username: 'admin', password: 'password', name: 'Super Admin' }
 ];
 
-import { hashPassword, setGlobalCurrency } from './lib/utils';
+import { hashPassword, setGlobalCurrency, formatCurrency } from './lib/utils';
 
 export default function App() {
   const [user, setUser] = useState<{ role: 'admin' | 'investor', name: string, managerRole?: 'admin' | 'manager' | 'read_only' | 'custom', permissions?: any } | null>(() => {
@@ -40,9 +40,29 @@ export default function App() {
   const [periodHistory, setPeriodHistory] = useState<PeriodHistory[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [periodProfit, setPeriodProfit] = useState<number>(0);
+  const [brokerBalance, setBrokerBalance] = useState<number>(0);
+
+  const totalStartingCapital = investors.reduce((sum, inv) => sum + inv.startingCapital, 0);
+  
+  // Calculate current Manager Wallet Balance (fees collected but not yet withdrawn)
+  const managerWithdrawals = transactions
+    .filter(t => t.type === 'manager_withdrawal' && t.status === 'completed')
+    .reduce((sum, t) => sum + t.amount, 0);
+  const managerWalletBalance = investors.reduce((sum, inv) => sum + (inv.feeCollected || 0), 0) - managerWithdrawals;
+
+  const handleBrokerBalanceChange = (val: number) => {
+    setBrokerBalance(val);
+    // Professional PAMM logic: Total Equity = Investor Capital + Manager Earnings
+    // Profit should only be calculated on Top of the total starting equity
+    const totalStartingEquity = totalStartingCapital + managerWalletBalance;
+    setPeriodProfit(totalStartingEquity > 0 ? val - totalStartingEquity : val);
+  };
+  const [showRolloverConfirm, setShowRolloverConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('pamm_darkMode') === 'true';
+  });
 
   useEffect(() => {
     if (user) {
@@ -59,6 +79,7 @@ export default function App() {
   }, [managers]);
 
   useEffect(() => {
+    localStorage.setItem('pamm_darkMode', darkMode.toString());
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -293,6 +314,11 @@ export default function App() {
       }
     }
 
+    // Manager withdrawal doesn't affect investor ending capital, it affects the aggregate "Wallet" (feeCollected total)
+    // We already subtract managerWithdrawals from sum(feeCollected) in DashboardStats.tsx, so no further state update is strictly needed for investors
+    // However, if we want to explicitly move feeCollected to some 'manager_earnings' table, that would be a schema change.
+    // For now, the transactions list suffices as the source of truth for outflows.
+
     if (supabase) {
       try {
         await supabase.from('transactions').update({ status }).eq('id', id);
@@ -395,33 +421,31 @@ export default function App() {
   };
 
   const calculatePeriod = async () => {
-    const totalCapital = investors.reduce((sum, inv) => sum + inv.startingCapital, 0);
+    const totalInvestorCapital = investors.reduce((sum, inv) => sum + inv.startingCapital, 0);
+    const totalStartingEquity = totalInvestorCapital + managerWalletBalance;
+    
+    // Calculate the growth rate of the entire master account
+    const growthRate = totalStartingEquity > 0 ? periodProfit / totalStartingEquity : 0;
 
     const updated = investors.map(inv => {
-      const sharePercentage = totalCapital > 0 ? (inv.startingCapital / totalCapital) * 100 : 0;
-      const individualProfitShare = periodProfit * (sharePercentage / 100);
+      // Investor's share of the growth
+      const individualProfitShare = inv.startingCapital * growthRate;
+      const sharePercentage = totalInvestorCapital > 0 ? (inv.startingCapital / totalInvestorCapital) * 100 : 0;
       
       const grossValue = inv.startingCapital + individualProfitShare;
       let yourFee = 0;
 
       const effectiveFeePercentage = inv.customFeePercentage ?? inv.feePercentage ?? 20;
 
-      // Fallback: If HWM is 0 but they have starting capital (from previously hitting the bug), treat HWM as starting capital.
-      const safeHWM = (inv.highWaterMark === 0 && inv.startingCapital > 0) ? inv.startingCapital : inv.highWaterMark;
-
-      if (grossValue > safeHWM) {
-        const taxableProfit = grossValue - safeHWM;
+      // HWM Logic: Fee is only taken on profits above the previous high.
+      if (grossValue > inv.highWaterMark) {
+        const taxableProfit = grossValue - inv.highWaterMark;
         yourFee = taxableProfit * (effectiveFeePercentage / 100);
       }
 
       const netProfit = individualProfitShare - yourFee;
-      const reinvestAmt = netProfit - inv.cashPayout;
+      // Ending capital is after performance fee and cash payout
       const endingCapital = inv.startingCapital + netProfit - inv.cashPayout;
-      // Do NOT mutate unpaidFee multiplicatively during calculatePeriod.
-      // UnpaidFee is a ledger baseline state that is only appended to during rolloverPeriod via yourFee.
-      // The current UI shows 'unpaidFee' which includes historical debts. 
-      // If we want it to reflect total owed including this period's estimation, we should compute it on the fly, NOT save it sequentially here.
-      // For now, we will simply not mutate it so it doesn't infinitely accumulate on every click.
 
       return {
         ...inv,
@@ -429,9 +453,8 @@ export default function App() {
         individualProfitShare,
         yourFee,
         netProfit,
-        reinvestAmt,
         endingCapital,
-        unpaidFee: inv.unpaidFee // Retain current historical state, do not increment here.
+        unpaidFee: inv.unpaidFee
       };
     });
 
@@ -445,62 +468,77 @@ export default function App() {
   };
 
   const rolloverPeriod = async () => {
-    if (window.confirm("Are you sure you want to rollover to the next period? This will set Starting Capital to Ending Capital and update the High Water Mark.")) {
-      
-      // Save snapshot to history
-      const historyRecord: PeriodHistory = {
-        id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).substring(2, 15),
-        date: new Date().toISOString(),
-        totalProfit: periodProfit,
-        investorSnapshots: investors.map(inv => ({
-          investorId: inv.id,
-          investorName: inv.investorName,
-          startingCapital: inv.startingCapital,
-          netProfit: inv.netProfit,
-          endingCapital: inv.endingCapital
-        }))
-      };
+    // Save snapshot to history
+    const historyRecord: PeriodHistory = {
+      id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).substring(2, 15),
+      date: new Date().toISOString(),
+      totalProfit: periodProfit,
+      investorSnapshots: investors.map(inv => ({
+        investorId: inv.id,
+        investorName: inv.investorName,
+        startingCapital: inv.startingCapital,
+        netProfit: inv.netProfit,
+        endingCapital: inv.endingCapital
+      }))
+    };
 
-      setPeriodHistory([historyRecord, ...periodHistory]);
-      logAction('Rollover Period', `Rolled over period with total profit $${periodProfit}`, 'system');
-      
-      if (supabase) {
-        try {
-          await supabase.from('period_history').insert([historyRecord]);
-        } catch (e) {
-          console.error("Failed to save period history", e);
-        }
+    setPeriodHistory([historyRecord, ...periodHistory]);
+    logAction('Rollover Period', `Rolled over period with total profit $${periodProfit}`, 'system');
+    
+    if (supabase) {
+      try {
+        await supabase.from('period_history').insert([historyRecord]);
+      } catch (e) {
+        console.error("Failed to save period history", e);
       }
+    }
 
-      const updated = investors.map(inv => {
-        const adjustedHWM = Math.max(0, inv.highWaterMark - inv.cashPayout);
-        const newHWM = Math.max(adjustedHWM, inv.endingCapital);
+    const totalInvestorCapital = investors.reduce((sum, inv) => sum + inv.startingCapital, 0);
+    const totalStartingEquity = totalInvestorCapital + managerWalletBalance;
+    const growthRate = totalStartingEquity > 0 ? periodProfit / totalStartingEquity : 0;
+    
+    // Manager's own profit from their wallet balance sitting in the account
+    const managerDirectProfit = managerWalletBalance * growthRate;
 
-        return {
-          ...inv,
-          startingCapital: inv.endingCapital,
-          highWaterMark: newHWM,
-          unpaidFee: inv.unpaidFee + (inv.yourFee || 0),
-          individualProfitShare: 0,
-          yourFee: 0,
-          netProfit: 0,
-          reinvestAmt: 0,
-          cashPayout: 0,
-          feeCollected: 0,
-        };
-      });
+    const updated = investors.map(inv => {
+      // High Water Mark logic: new HWM is the max of current HWM or Ending Capital
+      const adjustedHWM = Math.max(0, inv.highWaterMark - inv.cashPayout);
+      const newHWM = Math.max(adjustedHWM, inv.endingCapital);
+
+      // Manager's new fee collected: Existing + Performance Fee from this investor
+      // AND a portion of the Manager's own direct profit (distributed across investors for simplicity in state, 
+      // or we can add it to a specific record. We'll add a share of direct profit to the first investor 
+      // or just ensure feeCollected is updated correctly.)
       
-      setInvestors(updated);
-      setPeriodProfit(0);
+      // Professional approach: We distribute the direct profit proportionally as if the manager was an investor
+      const managerProfitShareForThisRecord = investors.length > 0 ? (managerDirectProfit / investors.length) : 0;
+      const newFeeCollected = inv.feeCollected + (inv.yourFee || 0) + managerProfitShareForThisRecord;
 
-      if (supabase) {
-        try {
-          for (const inv of updated) {
-            await supabase.from('investors').update(inv).eq('id', inv.id);
-          }
-        } catch (e) {
-          console.error("Failed to update investors on rollover", e);
+      return {
+        ...inv,
+        startingCapital: inv.endingCapital,
+        highWaterMark: newHWM,
+        feeCollected: newFeeCollected,
+        individualProfitShare: 0,
+        yourFee: 0,
+        netProfit: 0,
+        reinvestAmt: 0,
+        cashPayout: 0,
+      };
+    });
+    
+    setInvestors(updated);
+    setPeriodProfit(0);
+    setBrokerBalance(0);
+    setShowRolloverConfirm(false);
+
+    if (supabase) {
+      try {
+        for (const inv of updated) {
+          await supabase.from('investors').update(inv).eq('id', inv.id);
         }
+      } catch (e) {
+        console.error("Failed to update investors on rollover", e);
       }
     }
   };
@@ -683,42 +721,42 @@ create table audit_logs (
 
   if (!supabase) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white max-w-2xl w-full rounded-2xl shadow-xl border border-slate-200 p-8">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors duration-300">
+        <div className="bg-white dark:bg-slate-900 max-w-2xl w-full rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-8">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-              <Database className="w-6 h-6 text-emerald-600" />
+            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center">
+              <Database className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Supabase Setup Required</h1>
-              <p className="text-slate-500">Connect your database to continue</p>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Supabase Setup Required</h1>
+              <p className="text-slate-500 dark:text-slate-400">Connect your database to continue</p>
             </div>
           </div>
           
           <div className="space-y-6">
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-              <h3 className="font-semibold text-slate-900 mb-2">1. Add Environment Variables</h3>
-              <p className="text-sm text-slate-600 mb-3">
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-2">1. Add Environment Variables</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
                 Open the <strong>Settings</strong> panel (top right) and add these secrets:
               </p>
-              <ul className="list-disc list-inside text-sm text-slate-700 space-y-1 font-mono">
+              <ul className="list-disc list-inside text-sm text-slate-700 dark:text-slate-300 space-y-1 font-mono">
                 <li>VITE_SUPABASE_URL</li>
                 <li>VITE_SUPABASE_ANON_KEY</li>
               </ul>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
               <div className="flex justify-between items-center mb-2">
-                <h3 className="font-semibold text-slate-900">2. Run this SQL in Supabase</h3>
+                <h3 className="font-semibold text-slate-900 dark:text-white">2. Run this SQL in Supabase</h3>
                 <button 
                   onClick={copySql}
-                  className="flex items-center gap-1.5 text-sm bg-white border border-slate-200 px-3 py-1.5 rounded-md hover:bg-slate-50 transition-colors"
+                  className="flex items-center gap-1.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
-                  {copied ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-slate-600" />}
+                  {copied ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-slate-600 dark:text-slate-400" />}
                   {copied ? 'Copied!' : 'Copy SQL'}
                 </button>
               </div>
-              <p className="text-sm text-slate-600 mb-3">
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
                 Go to the SQL Editor in your Supabase dashboard and run this to create the tables:
               </p>
               <pre className="bg-slate-900 text-slate-300 p-4 rounded-lg text-sm overflow-x-auto">
@@ -733,7 +771,7 @@ create table audit_logs (
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center transition-colors duration-300">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -764,7 +802,7 @@ create table audit_logs (
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans">
+    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <div className={`fixed inset-0 bg-slate-900/50 z-20 md:hidden transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsSidebarOpen(false)} />
       
       <div className={`fixed inset-y-0 left-0 z-30 w-64 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -831,6 +869,7 @@ create table audit_logs (
                     history={periodHistory} 
                     isAdmin={isAdmin} 
                     onAddTransaction={handleAddTransaction}
+                    brokerBalance={brokerBalance}
                   />
                   <ReportsView investors={investors} transactions={transactions} />
                 </>
@@ -853,35 +892,82 @@ create table audit_logs (
           {activeTab === 'investors' && (
             <>
               {isAdmin && !isReadOnly('canManageTransactions') && (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Period Calculation</h3>
-                  <div className="flex items-end gap-4">
-                    <div className="flex-1 max-w-xs">
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Total Period Profit / Loss ($)
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-8 transition-colors">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Period Distribution</h3>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-slate-500 dark:text-slate-400">Total Starting Capital:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(totalStartingCapital)}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col md:flex-row items-end gap-4">
+                    <div className="flex-1 w-full max-w-xs">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        Latest Broker Balance ($)
+                      </label>
+                      <input 
+                        type="number" 
+                        value={brokerBalance || ''}
+                        onChange={(e) => handleBrokerBalanceChange(parseFloat(e.target.value) || 0)}
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all dark:bg-slate-900 dark:text-white"
+                        placeholder="Current MT5 balance"
+                      />
+                    </div>
+
+                    <div className="flex-1 w-full max-w-xs">
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        Calculated Period Profit ($)
                       </label>
                       <input 
                         type="number" 
                         value={periodProfit}
                         onChange={(e) => setPeriodProfit(parseFloat(e.target.value) || 0)}
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                        placeholder="e.g. 10000 or -5000"
+                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all dark:text-white font-semibold"
+                        placeholder="Profit to distribute"
                       />
                     </div>
-                    <button 
-                      onClick={calculatePeriod}
-                      className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
-                    >
-                      <Calculator className="w-4 h-4" />
-                      Calculate Distribution
-                    </button>
-                    <button 
-                      onClick={rolloverPeriod}
-                      className="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium transition-colors ml-auto"
-                    >
-                      Rollover Period
-                    </button>
+
+                    <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                      <button 
+                        onClick={calculatePeriod}
+                        className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                      >
+                        <Calculator className="w-4 h-4" />
+                        Distribute Profit
+                      </button>
+                      
+                      {showRolloverConfirm ? (
+                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
+                          <button 
+                            onClick={rolloverPeriod}
+                            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-all shadow-lg ring-2 ring-red-300"
+                          >
+                            Confirm Rollover?
+                          </button>
+                          <button 
+                            onClick={() => setShowRolloverConfirm(false)}
+                            className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setShowRolloverConfirm(true)}
+                          className="px-6 py-2 bg-slate-800 dark:bg-slate-700 text-white rounded-lg hover:bg-slate-900 dark:hover:bg-slate-600 font-medium transition-colors"
+                        >
+                          Rollover Period
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  
+                  {periodProfit !== 0 && (
+                    <p className={`text-sm mt-3 font-medium ${periodProfit > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {periodProfit > 0 ? "Profit" : "Loss"} of {formatCurrency(Math.abs(periodProfit))} will be distributed across all investors based on their share of equity.
+                    </p>
+                  )}
                 </div>
               )}
 

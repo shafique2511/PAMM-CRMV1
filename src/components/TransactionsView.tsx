@@ -29,12 +29,14 @@ export function TransactionsView({ transactions, investors, onAddTransaction, on
     setSortConfig({ key, direction });
   };
 
+  const [confirmingWithdrawal, setConfirmingWithdrawal] = useState(false);
+
   const handleAdd = () => {
     if (!amount || type === 'all') return;
     
-    if (type === 'manager_withdrawal') {
-      const confirmed = window.confirm("Are you sure you want to record a Manager Withdrawal? This action is intentional and will reduce your available manager balance.");
-      if (!confirmed) return;
+    if (type === 'manager_withdrawal' && !confirmingWithdrawal) {
+      setConfirmingWithdrawal(true);
+      return;
     }
 
     onAddTransaction({
@@ -46,6 +48,7 @@ export function TransactionsView({ transactions, investors, onAddTransaction, on
       notes
     });
     setAmount(''); setNotes('');
+    setConfirmingWithdrawal(false);
   };
 
   const totalDeposits = transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0);
@@ -214,9 +217,23 @@ export function TransactionsView({ transactions, investors, onAddTransaction, on
             <input type="number" placeholder="Amount ($)" className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" value={amount} onChange={e=>setAmount(e.target.value)}/>
             <input type="text" placeholder="Notes (Optional)" className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none md:col-span-2" value={notes} onChange={e=>setNotes(e.target.value)}/>
           </div>
-          <button onClick={handleAdd} className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            <Plus className="w-4 h-4"/> Record Transaction
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handleAdd} 
+              className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-all font-medium ${confirmingWithdrawal ? 'bg-red-600 hover:bg-red-700 shadow-lg ring-2 ring-red-300' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+            >
+              <Plus className="w-4 h-4"/> 
+              {confirmingWithdrawal ? 'Confirm Manager Withdrawal?' : 'Record Transaction'}
+            </button>
+            {confirmingWithdrawal && (
+              <button 
+                onClick={() => setConfirmingWithdrawal(false)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
       )}
       

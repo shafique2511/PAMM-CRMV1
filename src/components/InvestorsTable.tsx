@@ -22,6 +22,7 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
   const [editForm, setEditForm] = useState<Partial<Investor>>({});
   const [showQR, setShowQR] = useState<string | null>(null);
   const [invoiceInvestor, setInvoiceInvestor] = useState<Investor | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: 'asc' | 'desc' } | null>(null);
 
   const handleSort = (key: SortKey) => {
@@ -369,13 +370,17 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                             )}
                             <button 
                               onClick={() => {
-                                if (window.confirm(`Are you sure you want to delete investor ${inv.investorName}? This action cannot be undone.`)) {
+                                if (confirmDeleteId === inv.id) {
                                   onDeleteInvestor(inv.id);
+                                  setConfirmDeleteId(null);
+                                } else {
+                                  setConfirmDeleteId(inv.id);
+                                  setTimeout(() => setConfirmDeleteId(null), 3000);
                                 }
                               }}
-                              className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                              className={`p-1.5 rounded-md transition-all ${confirmDeleteId === inv.id ? 'bg-red-600 text-white animate-pulse' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {confirmDeleteId === inv.id ? <Check className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
                             </button>
                           </>
                         )}
