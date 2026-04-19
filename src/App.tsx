@@ -9,6 +9,7 @@ import { TransactionsView } from './components/TransactionsView';
 import { ManagerWithdrawalsView } from './components/ManagerWithdrawalsView';
 import { JournalView } from './components/JournalView';
 import { InvestorDashboard } from './components/InvestorDashboard';
+import { InvestorProfileView } from './components/InvestorProfileView';
 import { AffiliatesView } from './components/AffiliatesView';
 import { AuditLogView } from './components/AuditLogView';
 import { ManagerProfileView } from './components/ManagerProfileView';
@@ -435,6 +436,19 @@ export default function App() {
     return { success: true, count: mockTrades.length };
   };
 
+  const handleUpdateTrade = async (id: string, updates: Partial<Trade>) => {
+    const trade = trades.find(t => t.id === id);
+    setTrades(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    logAction('update', `Updated trade ${trade?.ticket || id}`, 'trade');
+    if (supabase) {
+      try {
+        await supabase.from('trades').update(updates).eq('id', id);
+      } catch (e) {
+        console.error("Failed to update trade", e);
+      }
+    }
+  };
+
   const calculatePeriod = async () => {
     const totalInvestorCapital = investors.reduce((sum, inv) => sum + inv.startingCapital, 0);
     const totalStartingEquity = totalInvestorCapital + managerWalletBalance;
@@ -615,6 +629,7 @@ create table if not exists managers (
   "permissions" jsonb,
   "enableIBModule" boolean,
   "allowInvestorWithdrawals" boolean,
+  "showTradingJournalToInvestors" boolean,
   "defaultFeePercentage" numeric
 );
 
@@ -848,7 +863,7 @@ create table if not exists audit_logs (
           setActiveTab={(tab) => { setActiveTab(tab); setIsSidebarOpen(false); }} 
           isAdmin={isAdmin}
           managerRole={user?.managerRole}
-          permissions={user?.permissions}
+          permissions={isAdmin ? user?.permissions : { showTradingJournalToInvestors: managers[0]?.showTradingJournalToInvestors }}
           enableIBModule={managers[0]?.enableIBModule || false}
           onLogout={() => setUser(null)}
         />
@@ -920,6 +935,7 @@ create table if not exists audit_logs (
                     onUpdateInvestor={handleUpdateInvestor}
                     onAddTransaction={handleAddTransaction}
                     allowWithdrawals={managers[0]?.allowInvestorWithdrawals || false}
+                    showTradingJournal={managers[0]?.showTradingJournalToInvestors || false}
                   />
                 )
               )}
@@ -1074,12 +1090,13 @@ create table if not exists audit_logs (
             />
           )}
 
-          {activeTab === 'journal' && isAdmin && (
+          {activeTab === 'journal' && (isAdmin || managers[0]?.showTradingJournalToInvestors) && (
             <JournalView 
               trades={trades} 
               onSyncMT5={handleSyncMT5} 
+              onUpdateTrade={handleUpdateTrade}
               totalCapital={investors.reduce((sum, inv) => sum + inv.startingCapital, 0)}
-              readOnly={isReadOnly('canSyncMT5')}
+              readOnly={!isAdmin || isReadOnly('canSyncMT5')}
             />
           )}
 
@@ -1099,15 +1116,22 @@ create table if not exists audit_logs (
             <AuditLogView logs={auditLogs} onClearLogs={handleClearAuditLogs} />
           )}
 
-          {activeTab === 'profile' && isAdmin && user?.managerRole && (
-            <ManagerProfileView 
-              manager={managers.find(m => m.username === user.name) || managers[0]}
-              investors={investors}
-              transactions={transactions}
-              trades={trades}
-              auditLogs={auditLogs}
-              onUpdateManager={handleUpdateManager}
-            />
+          {activeTab === 'profile' && (
+            isAdmin && user?.managerRole ? (
+              <ManagerProfileView 
+                manager={managers.find(m => m.username === user.name) || managers[0]}
+                investors={investors}
+                transactions={transactions}
+                trades={trades}
+                auditLogs={auditLogs}
+                onUpdateManager={handleUpdateManager}
+              />
+            ) : currentInvestor ? (
+              <InvestorProfileView 
+                investor={currentInvestor}
+                onUpdateInvestor={handleUpdateInvestor}
+              />
+            ) : null
           )}
 
           {activeTab === 'settings' && isAdmin && hasPermission('canManageSettings', user.managerRole === 'admin') && (

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Manager, AccessPermissions } from '../types';
-import { UserPlus, Shield, Server, Key, User, Link, Tags, X, Plus, Percent, Edit2, Trash2 } from 'lucide-react';
+import { UserPlus, Shield, Server, Key, User, Link, Tags, X, Plus, Percent, Edit2, Trash2, BookOpen } from 'lucide-react';
 
 export function SettingsView({ managers, onAddManager, onUpdateManager, onDeleteManager }: { managers: Manager[], onAddManager: (m: Partial<Manager>) => void, onUpdateManager: (id: string, updates: Partial<Manager>) => void, onDeleteManager?: (id: string) => void }) {
   const [newUsername, setNewUsername] = useState('');
@@ -250,6 +250,7 @@ alter table managers add column if not exists "role" text;
 alter table managers add column if not exists "permissions" jsonb;
 alter table managers add column if not exists "enableIBModule" boolean;
 alter table managers add column if not exists "allowInvestorWithdrawals" boolean;
+alter table managers add column if not exists "showTradingJournalToInvestors" boolean;
 alter table managers add column if not exists "defaultFeePercentage" numeric;
 
 -- 2. Investors Table Updates
@@ -420,6 +421,31 @@ alter table trades add column if not exists notes text;
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${allowInvestorWithdrawals ? 'bg-blue-500' : 'bg-slate-300'}`}
           >
             <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${allowInvestorWithdrawals ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Trading Journal Toggle */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <BookOpen className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Trading Journal for Investors</h3>
+              <p className="text-sm text-slate-500">Allow investors to view the aggregated MT5 trading history and analytics on their dashboard.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => {
+              if (mainManager) {
+                onUpdateManager(mainManager.id, { showTradingJournalToInvestors: !mainManager.showTradingJournalToInvestors });
+              }
+            }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${mainManager?.showTradingJournalToInvestors ? 'bg-indigo-500' : 'bg-slate-300'}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${mainManager?.showTradingJournalToInvestors ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
       </div>

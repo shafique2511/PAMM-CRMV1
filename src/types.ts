@@ -60,6 +60,7 @@ export interface Manager {
   defaultInvestorGroup?: string;
   enableIBModule?: boolean;
   allowInvestorWithdrawals?: boolean;
+  showTradingJournalToInvestors?: boolean;
   feeTiers?: FeeTier[];
   defaultFeePercentage?: number;
 }
