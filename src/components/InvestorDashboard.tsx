@@ -59,7 +59,15 @@ export function InvestorDashboard({ investor, history, transactions, trades = []
       const canvas = await html2canvas(dashboardRef.current, {
         scale: 2,
         useCORS: true,
-        logging: false
+        logging: false,
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc, element) => {
+          // Force background to white for the capture target
+          if (element) {
+            element.style.backgroundColor = '#ffffff';
+            element.style.padding = '20px'; // Add some padding for the PDF
+          }
+        }
       });
       
       const imgData = canvas.toDataURL('image/png');
