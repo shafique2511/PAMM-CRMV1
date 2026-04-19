@@ -292,7 +292,7 @@ export default function App() {
   const handleAddTransaction = async (t: Partial<Transaction>) => {
     const newTx = { ...t, id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).substring(2, 15) } as Transaction;
     setTransactions([newTx, ...transactions]);
-    logAction('Record Transaction', `Recorded ${t.type} of $${t.amount}`, 'transaction');
+    logAction('Record Transaction', `Recorded ${t.type} of $${t.amount}${t.referenceId ? ` (Ref: ${t.referenceId})` : ''}`, 'transaction');
     if (supabase) {
       try {
         await supabase.from('transactions').insert([newTx]);
@@ -625,7 +625,11 @@ create table if not exists transactions (
   amount numeric,
   date text,
   status text,
-  notes text
+  notes text,
+  "referenceId" text,
+  method text,
+  category text,
+  "receiptUrl" text
 );
 
 create table if not exists trades (

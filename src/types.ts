@@ -72,6 +72,10 @@ export interface Transaction {
   date: string;
   status: 'completed' | 'pending' | 'rejected';
   notes?: string;
+  referenceId?: string;
+  method?: string;
+  category?: 'Internal' | 'Bank' | 'Crypto' | 'Correction' | 'Other';
+  receiptUrl?: string;
 }
 
 export interface TradingPeriod {

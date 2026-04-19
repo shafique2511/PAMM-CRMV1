@@ -263,7 +263,20 @@ alter table investors add column if not exists "ibCommissionRate" numeric;
 alter table investors add column if not exists "qrCode" text;
 alter table investors add column if not exists "bankAccount" text;
 
--- 3. Ensure tables exist (General Setup)
+-- 3. Transactions Table Updates
+alter table transactions add column if not exists "referenceId" text;
+alter table transactions add column if not exists "method" text;
+alter table transactions add column if not exists "category" text;
+alter table transactions add column if not exists "receiptUrl" text;
+
+-- 4. Trades Table Updates
+alter table trades add column if not exists sl numeric;
+alter table trades add column if not exists tp numeric;
+alter table trades add column if not exists "entryReason" text;
+alter table trades add column if not exists "exitReason" text;
+alter table trades add column if not exists notes text;
+
+-- 5. Ensure tables exist (General Setup)
 -- create table if not exists audit_logs (id text primary key, timestamp text, "userId" text, "userName" text, action text, details text, type text);
 -- create table if not exists period_history (id text primary key, date text, "totalProfit" numeric, "investorSnapshots" jsonb);
 `;

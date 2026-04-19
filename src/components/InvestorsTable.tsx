@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Investor } from '../types';
 import { formatCurrency, formatPercent } from '../lib/utils';
-import { Edit2, Trash2, QrCode, Check, FileText, ArrowUpDown, Circle, UserCheck, UserMinus, ShieldAlert, Calendar } from 'lucide-react';
+import { Edit2, Trash2, QrCode, Check, FileText, ArrowUpDown, Circle, UserCheck, UserMinus, ShieldAlert, Calendar, UserPlus } from 'lucide-react';
 import { InvoiceModal } from './InvoiceModal';
 
 interface InvestorsTableProps {
@@ -335,7 +335,7 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                           <span className="font-bold text-orange-600">{formatCurrency(inv.unpaidFee)}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          {inv.bankAccount && <Circle className="w-1.5 h-1.5 fill-blue-500 text-blue-500" title="Account Details available" />}
+                          {inv.bankAccount && <Circle className="w-1.5 h-1.5 fill-blue-500 text-blue-500" />}
                           {inv.qrCode && (
                             <button 
                               onClick={() => setShowQR(showQR === inv.id ? null : inv.id)}
