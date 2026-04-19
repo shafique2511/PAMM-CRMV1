@@ -264,6 +264,11 @@ alter table investors add column if not exists "referredBy" text;
 alter table investors add column if not exists "ibCommissionRate" numeric;
 alter table investors add column if not exists "qrCode" text;
 alter table investors add column if not exists "bankAccount" text;
+alter table investors add column if not exists "phone" text;
+alter table investors add column if not exists "address" text;
+alter table investors add column if not exists "country" text;
+alter table investors add column if not exists "idNumber" text;
+alter table investors add column if not exists "emailNotifications" boolean;
 
 -- 3. Transactions Table Updates
 alter table transactions add column if not exists "referenceId" text;

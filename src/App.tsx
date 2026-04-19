@@ -581,8 +581,14 @@ export default function App() {
 -- alter table investors add column if not exists "customFeePercentage" numeric;
 -- alter table investors add column if not exists "referredBy" text;
 -- alter table investors add column if not exists "ibCommissionRate" numeric;
+-- alter table investors add column if not exists "phone" text;
+-- alter table investors add column if not exists "address" text;
+-- alter table investors add column if not exists "country" text;
+-- alter table investors add column if not exists "idNumber" text;
+-- alter table investors add column if not exists "emailNotifications" boolean;
 -- alter table managers add column if not exists "allowInvestorWithdrawals" boolean;
 -- alter table managers add column if not exists "defaultFeePercentage" numeric;
+-- alter table managers add column if not exists "showTradingJournalToInvestors" boolean;
 
 create table if not exists investors (
   id uuid default gen_random_uuid() primary key,
@@ -591,6 +597,11 @@ create table if not exists investors (
   "group" text,
   "status" text default 'active',
   "joinedAt" text,
+  "phone" text,
+  "address" text,
+  "country" text,
+  "idNumber" text,
+  "emailNotifications" boolean,
   "baseCurrency" text,
   "highWaterMark" numeric,
   "startingCapital" numeric,
