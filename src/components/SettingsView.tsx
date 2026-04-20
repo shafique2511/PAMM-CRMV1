@@ -639,9 +639,9 @@ create table if not exists period_history (id text primary key, date text, "tota
       </div>
 
       {/* MT5 Integration Section */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-blue-100 rounded-lg">
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
             <Server className="w-5 h-5" />
           </div>
           <div>

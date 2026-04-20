@@ -121,8 +121,8 @@ export function InvoiceModal({ investor, onClose }: InvoiceModalProps) {
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Prepared For</p>
                 <h3 className="text-2xl font-black text-slate-900 mb-2">{investor.investorName}</h3>
                 <div className="space-y-1">
-                  {investor.idNumber && <p className="text-sm font-medium text-slate-600"><span className="text-slate-400">ID:</span> {investor.idNumber}</p>}
-                  {investor.address && <p className="text-sm font-medium text-slate-600"><span className="text-slate-400">Addr:</span> {investor.address}</p>}
+                  {investor.email && <p className="text-sm font-medium text-slate-600"><span className="text-slate-400">Email:</span> {investor.email}</p>}
+                  {investor.phone && <p className="text-sm font-medium text-slate-600"><span className="text-slate-400">Phone:</span> {investor.phone}</p>}
                   {investor.country && <p className="text-sm font-medium text-slate-600"><span className="text-slate-400">Country:</span> {investor.country}</p>}
                 </div>
                 {investor.bankAccount && (
