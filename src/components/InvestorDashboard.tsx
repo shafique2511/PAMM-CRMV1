@@ -3,7 +3,7 @@ import { Investor, PeriodHistory, Transaction, Trade } from '../types';
 import { formatCurrency as globalFormatCurrency } from '../lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Shield, ArrowRightLeft, Percent, PieChart as PieChartIcon, Download, Loader2, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
 
 export function InvestorDashboard({ investor, history, transactions, trades = [], onAddTransaction, allowWithdrawals, showTradingJournal }: { investor: Investor, history: PeriodHistory[], transactions: Transaction[], trades?: Trade[], onUpdateInvestor?: (id: string, updates: Partial<Investor>) => void, onAddTransaction?: (t: Partial<Transaction>) => void, allowWithdrawals?: boolean, showTradingJournal?: boolean }) {
@@ -53,7 +53,6 @@ export function InvestorDashboard({ investor, history, transactions, trades = []
         backgroundColor: '#ffffff',
         onclone: (clonedDoc, element) => {
           if (element) {
-            element.classList.add('pdf-capture');
             element.style.backgroundColor = '#ffffff';
             element.style.padding = '20px';
           }

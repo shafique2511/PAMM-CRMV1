@@ -66,7 +66,7 @@ export function Sidebar({ activeTab, setActiveTab, isAdmin, managerRole, permiss
   ];
 
   return (
-    <div className="flex flex-col w-64 bg-slate-950 text-slate-300 h-screen border-r border-slate-800 shadow-xl overflow-hidden">
+    <div className="flex flex-col w-64 bg-slate-950 text-slate-300 h-full border-r border-slate-800 shadow-xl overflow-hidden">
       <div className="flex items-center justify-center p-6 border-b border-slate-800">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20">

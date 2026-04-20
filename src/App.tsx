@@ -596,6 +596,16 @@ export default function App() {
 -- alter table investors add column if not exists "country" text;
 -- alter table investors add column if not exists "memberTier" text;
 -- alter table investors add column if not exists "emailNotifications" boolean;
+-- alter table investors add column if not exists "reinvestAmt" numeric;
+-- alter table investors add column if not exists "cashPayout" numeric;
+-- alter table investors add column if not exists "unpaidFee" numeric;
+-- alter table investors add column if not exists "feeCollected" numeric;
+-- alter table investors add column if not exists "lossCarryover" numeric;
+-- alter table investors add column if not exists "netProfit" numeric;
+-- alter table investors add column if not exists "yourFee" numeric;
+-- alter table investors add column if not exists "individualProfitShare" numeric;
+-- alter table investors add column if not exists "qrCode" text;
+-- alter table investors add column if not exists "bankAccount" text;
 -- alter table managers add column if not exists "allowInvestorWithdrawals" boolean;
 -- alter table managers add column if not exists "defaultFeePercentage" numeric;
 -- alter table managers add column if not exists "showTradingJournalToInvestors" boolean;

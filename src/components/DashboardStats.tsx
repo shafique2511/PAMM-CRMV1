@@ -18,14 +18,14 @@ export function DashboardStats({ investors, transactions, trades = [], history =
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawNotes, setWithdrawNotes] = useState('');
 
-  // Math Logic Overhaul
+  // Math Logic Overhaul - Professional Grade True All-Time Calculations
   const safeSum = (arr: any[], key: string) => arr.reduce((sum, item) => sum + (Number(item[key]) || 0), 0);
 
-  const totalStartingCapital = safeSum(investors, 'startingCapital');
-  const totalEndingCapital = safeSum(investors, 'endingCapital');
+  const totalStartingCapital = safeSum(investors, 'startingCapital'); // Current active period opening equity
+  const totalEndingCapital = safeSum(investors, 'endingCapital');     // Current active period closing equity
   
   const totalUnpaidFees = investors.reduce((sum, inv) => sum + (Number(inv.unpaidFee) || 0) + (Number(inv.yourFee) || 0), 0);
-  const totalFeeCollected = safeSum(investors, 'feeCollected');
+  const totalFeeCollected = safeSum(investors, 'feeCollected'); // feeCollected natively accrues all-time in the system
 
   const managerWithdrawalTxs = transactions.filter(t => t.type === 'manager_withdrawal');
   const managerWithdrawals = safeSum(managerWithdrawalTxs, 'amount');
@@ -36,14 +36,47 @@ export function DashboardStats({ investors, transactions, trades = [], history =
   // Computed entire current broker equity (Investors + Manager Wallet)
   const computedBrokerBalance = totalEndingCapital + managerWalletBalance;
 
-  // Investor Aggregated Stats
-  const totalReinvested = safeSum(investors, 'reinvestAmt');
-  const totalInvestorPayouts = safeSum(investors, 'cashPayout');
-  const totalProfitGenerated = safeSum(investors, 'netProfit');
+  // -- TRUE ALL-TIME INVESTOR METRICS RECONSTRUCTION --
+  
+  // 1. All-Time Net Profit
+  // Combines current floating net profit with all historical snapshot net profits
+  const currentNetProfit = safeSum(investors, 'netProfit');
+  const historicalNetProfit = history.reduce((sum, h) => 
+    sum + h.investorSnapshots.reduce((s, inv) => s + (Number(inv.netProfit) || 0), 0)
+  , 0);
+  const totalProfitGeneratedAllTime = currentNetProfit + historicalNetProfit;
 
-  // Professional ROI = Total Profit / Total Starting Capital
-  const professionalROI = totalStartingCapital > 0 ? (totalProfitGenerated / totalStartingCapital) * 100 : 0;
+  // 2. All-Time Cash Payouts & Dividend Extractions
+  // Because 'cashPayout' resets on rollover and isn't saved to history directly, we reverse-engineer it 
+  // mathematically from the snapshot invariant: EndingCap = StartingCap + Profit - Payout
+  // Therefore: Payout = StartingCap + Profit - EndingCap
+  const currentCashPayouts = safeSum(investors, 'cashPayout');
+  const historicalCashPayouts = history.reduce((sum, h) => 
+    sum + h.investorSnapshots.reduce((s, inv) => {
+      const rebuiltPayout = (Number(inv.startingCapital) || 0) + (Number(inv.netProfit) || 0) - (Number(inv.endingCapital) || 0);
+      return s + Math.max(0, rebuiltPayout); // Prevent edge anomalies
+    }, 0)
+  , 0);
+  
+  // Also include explicit 'withdrawal' transactions just in case they were processed outside of period roll-overs
+  const externalWithdrawals = safeSum(transactions.filter(t => t.type === 'withdrawal' && t.status === 'completed'), 'amount');
+  
+  const totalInvestorPayoutsAllTime = currentCashPayouts + historicalCashPayouts + externalWithdrawals;
 
+  // 3. All-Time Reinvested Profit
+  // Reinvestment is simply the profit that was NOT paid out.
+  const totalReinvestedAllTime = Math.max(0, totalProfitGeneratedAllTime - totalInvestorPayoutsAllTime);
+
+  // 4. True All-Time ROI 
+  // To avoid shrinking ROI against a growing reinvested denominator, we reverse-engineer the pure Total Net Deposits:
+  // Since: Current Ending Capital = Total Net Deposits + All-Time Profit - All-Time Payouts
+  // Then: Total Net Deposits = Current Ending Capital + All-Time Payouts - All-Time Profit
+  const totalNetOriginalDeposits = Math.max(0, totalEndingCapital + totalInvestorPayoutsAllTime - totalProfitGeneratedAllTime);
+  const professionalROI = totalNetOriginalDeposits > 0 
+    ? (totalProfitGeneratedAllTime / totalNetOriginalDeposits) * 100 
+    : 0;
+
+  // Evaluate highest performer across current state
   const highestPerformingInvestor = [...investors].sort((a, b) => (Number(b.netProfit) || 0) - (Number(a.netProfit) || 0))[0];
   const highestPerformerText = highestPerformingInvestor && highestPerformingInvestor.netProfit > 0 
     ? `${highestPerformingInvestor.investorName} (${formatCurrency(highestPerformingInvestor.netProfit)})`
@@ -223,29 +256,29 @@ export function DashboardStats({ investors, transactions, trades = [], history =
                       <p className="text-slate-500 dark:text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest hidden md:block">Net Profit</p>
                       <p className="text-slate-500 dark:text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest md:hidden">Profit</p>
                     </div>
-                    <p className="font-bold text-sm md:text-lg text-slate-900 dark:text-white truncate">{formatCurrency(totalProfitGenerated)}</p>
+                    <p className="font-bold text-sm md:text-lg text-slate-900 dark:text-white truncate">{formatCurrency(totalProfitGeneratedAllTime)}</p>
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5 mb-1">
                       <Repeat className="w-3 h-3 text-blue-500" />
                       <p className="text-slate-500 dark:text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest">Reinvest</p>
                     </div>
-                    <p className="font-bold text-sm md:text-lg text-blue-600 dark:text-blue-400 truncate">{formatCurrency(totalReinvested)}</p>
+                    <p className="font-bold text-sm md:text-lg text-blue-600 dark:text-blue-400 truncate">{formatCurrency(totalReinvestedAllTime)}</p>
                   </div>
                   <div>
                      <div className="flex items-center gap-1.5 mb-1">
                       <ArrowDownToLine className="w-3 h-3 text-rose-500" />
                       <p className="text-slate-500 dark:text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest">Payouts</p>
                     </div>
-                    <p className="font-bold text-sm md:text-lg text-rose-600 dark:text-rose-400 truncate">{formatCurrency(totalInvestorPayouts)}</p>
+                    <p className="font-bold text-sm md:text-lg text-rose-600 dark:text-rose-400 truncate">{formatCurrency(totalInvestorPayoutsAllTime)}</p>
                   </div>
                   <div>
                      <div className="flex items-center gap-1.5 mb-1">
                       <DollarSign className="w-3 h-3 text-slate-500" />
-                      <p className="text-slate-500 dark:text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest hidden md:block">Start Cap</p>
-                      <p className="text-slate-500 dark:text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest md:hidden">Start</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest hidden md:block">Orig. Cap</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-[10px] md:text-xs font-black uppercase tracking-widest md:hidden">Orig.</p>
                     </div>
-                    <p className="font-bold text-sm md:text-lg text-slate-900 dark:text-white truncate">{formatCurrency(totalStartingCapital)}</p>
+                    <p className="font-bold text-sm md:text-lg text-slate-900 dark:text-white truncate">{formatCurrency(totalNetOriginalDeposits)}</p>
                   </div>
                 </div>
               </div>
@@ -281,7 +314,7 @@ export function DashboardStats({ investors, transactions, trades = [], history =
                 <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Global Net Return</h3>
               </div>
               <div className="flex items-end gap-3 relative z-10">
-                <h2 className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight">{formatCurrency(totalProfitGenerated)}</h2>
+                <h2 className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight">{formatCurrency(totalProfitGeneratedAllTime)}</h2>
                 <div className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-[10px] sm:text-xs font-black px-2 sm:px-2.5 py-1 rounded-lg uppercase tracking-wider mb-1.5 flex items-center gap-1">
                   Generated
                 </div>
