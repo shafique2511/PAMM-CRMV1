@@ -15,7 +15,7 @@ interface InvestorsTableProps {
   readOnly?: boolean;
 }
 
-type SortKey = keyof Investor | 'roi';
+type SortKey = keyof Investor | 'roi' | 'managerProfit';
 
 export function InvestorsTable({ investors, availableGroups, enableIBModule, onUpdateInvestor, onDeleteInvestor, isAdmin, readOnly }: InvestorsTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,6 +45,11 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
           bValue = (b.startingCapital || 0) > 0 ? (b.netProfit / b.startingCapital) : 0;
         }
 
+        if (sortConfig.key === 'managerProfit') {
+          aValue = (Number(a.feeCollected) || 0) + (Number(a.unpaidFee) || 0) + (Number(a.yourFee) || 0);
+          bValue = (Number(b.feeCollected) || 0) + (Number(b.unpaidFee) || 0) + (Number(b.yourFee) || 0);
+        }
+
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -67,30 +72,47 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
     setEditForm(prev => {
       const updates = { ...prev, [field]: value };
       
+      // Professional-grade stable math calculations:
+      const safeNum = (val: any) => Number(val) || 0;
+      
+      // For cross-field calculations, prioritize the currently editing object base
+      const originalInvestor = investors.find(i => i.id === editingId) || ({} as Investor);
+      
+      // Calculate active base values, preferring current mutations if they exist, except when those mutations are cyclic
+      const currentNetProfit = safeNum(prev.netProfit);
+      const currentStartingCapital = safeNum(prev.startingCapital);
+
       if (field === 'startingCapital') {
-        const newCap = Number(value) || 0;
-        updates.endingCapital = newCap + (prev.netProfit || 0) - (prev.cashPayout || 0);
-        if (prev.highWaterMark === 0 || (prev.highWaterMark < newCap && (!prev.netProfit || prev.netProfit === 0))) {
+        const newCap = safeNum(value);
+        updates.endingCapital = newCap + currentNetProfit - safeNum(prev.cashPayout);
+        
+        if (safeNum(prev.highWaterMark) === 0 || (safeNum(prev.highWaterMark) < newCap && currentNetProfit === 0)) {
           updates.highWaterMark = newCap;
         }
       }
 
       if (field === 'cashPayout') {
-        const payout = Number(value) || 0;
-        updates.reinvestAmt = (prev.netProfit || 0) - payout;
-        updates.endingCapital = (prev.startingCapital || 0) + updates.reinvestAmt;
+        const payout = safeNum(value);
+        updates.reinvestAmt = currentNetProfit - payout;
+        updates.endingCapital = currentStartingCapital + updates.reinvestAmt;
       }
       
       if (field === 'reinvestAmt') {
-        const reinvest = Number(value) || 0;
-        updates.cashPayout = (prev.netProfit || 0) - reinvest;
-        updates.endingCapital = (prev.startingCapital || 0) + reinvest;
+        const reinvest = safeNum(value);
+        updates.cashPayout = currentNetProfit - reinvest;
+        updates.endingCapital = currentStartingCapital + reinvest;
       }
       
       if (field === 'feeCollected') {
-        const collected = Number(value) || 0;
-        const totalFeesOwed = (prev.yourFee || 0) + (prev.unpaidFee || 0); // This is just a helper, actual logic in Period Calculation
-        updates.unpaidFee = Math.max(0, totalFeesOwed - collected);
+        const collected = safeNum(value);
+        // Base total debt before any collections happened is derived from the original unedited record
+        // to prevent cyclic mutations as the user types multiple digits.
+        const originalUnpaid = safeNum(originalInvestor.unpaidFee);
+        const originalCollected = safeNum(originalInvestor.feeCollected);
+        const originalYourFee = safeNum(originalInvestor.yourFee);
+        
+        const absoluteTotalOwed = originalUnpaid + originalCollected + originalYourFee;
+        updates.unpaidFee = Math.max(0, absoluteTotalOwed - collected - originalYourFee);
       }
 
       return updates;
@@ -154,6 +176,10 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                 )}
                 <SortHeader label="Net Profit" sortKey="netProfit" />
                 <SortHeader label="ROI" sortKey="roi" />
+                <SortHeader label="Reinvest" sortKey="reinvestAmt" />
+                <SortHeader label="Payout" sortKey="cashPayout" />
+                <SortHeader label="Fee Collected" sortKey="feeCollected" />
+                <SortHeader label="Mngr Profit" sortKey="managerProfit" />
                 <SortHeader label="Ending Equity" sortKey="endingCapital" />
                 <th className="px-4 py-4 font-bold whitespace-nowrap border-b dark:border-slate-700">Debt & Settlement</th>
                 <th className="px-4 py-4 font-bold whitespace-nowrap text-right border-b dark:border-slate-700">Actions</th>
@@ -324,6 +350,39 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                       <div className={`text-[10px] font-black italic px-2 py-1 rounded-lg inline-block ${roi >= 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/20'}`}>
                         {roi >= 0 ? '+' : ''}{roi.toFixed(2)}%
                       </div>
+                    </td>
+                    <td className="px-4 py-4 font-medium text-slate-900 dark:text-white">
+                      {isEditing ? (
+                        <input 
+                          type="number" 
+                          className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
+                          value={editForm.reinvestAmt || 0}
+                          onChange={(e) => handleInputChange('reinvestAmt', parseFloat(e.target.value))}
+                        />
+                      ) : formatCurrency(inv.reinvestAmt)}
+                    </td>
+                    <td className="px-4 py-4 font-medium text-slate-900 dark:text-white">
+                      {isEditing ? (
+                        <input 
+                          type="number" 
+                          className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
+                          value={editForm.cashPayout || 0}
+                          onChange={(e) => handleInputChange('cashPayout', parseFloat(e.target.value))}
+                        />
+                      ) : formatCurrency(inv.cashPayout)}
+                    </td>
+                    <td className="px-4 py-4 font-medium text-slate-900 dark:text-white">
+                      {isEditing ? (
+                        <input 
+                          type="number" 
+                          className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
+                          value={editForm.feeCollected || 0}
+                          onChange={(e) => handleInputChange('feeCollected', parseFloat(e.target.value))}
+                        />
+                      ) : formatCurrency(inv.feeCollected)}
+                    </td>
+                    <td className="px-4 py-4 font-bold text-indigo-600 dark:text-indigo-400">
+                      {formatCurrency((Number(inv.feeCollected) || 0) + (Number(inv.unpaidFee) || 0) + (Number(inv.yourFee) || 0))}
                     </td>
                     <td className="px-4 py-4 font-black text-slate-900 dark:text-white">
                       {formatCurrency(inv.endingCapital)}
