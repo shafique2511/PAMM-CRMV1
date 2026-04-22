@@ -7,6 +7,7 @@ export interface FeeTier {
 
 export interface Investor {
   id: string;
+  managerId?: string;
   investorName: string;
   password?: string;
   group?: string;
@@ -74,6 +75,7 @@ export interface Manager {
 
 export interface Transaction {
   id: string;
+  managerId?: string;
   investorId?: string;
   type: 'deposit' | 'withdrawal' | 'fee_payment' | 'manager_withdrawal';
   amount: number;
@@ -94,6 +96,7 @@ export interface TradingPeriod {
 
 export interface Trade {
   id: string;
+  managerId?: string;
   ticket: string;
   openTime: string;
   closeTime: string;
@@ -120,6 +123,7 @@ export interface InvestorSnapshot {
 
 export interface PeriodHistory {
   id: string;
+  managerId?: string;
   date: string;
   totalProfit: number;
   investorSnapshots: InvestorSnapshot[];

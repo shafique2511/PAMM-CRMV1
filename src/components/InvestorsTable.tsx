@@ -261,9 +261,13 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                       {isEditing ? (
                         <input 
                           type="number" 
+                          min="0"
                           className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.startingCapital || 0}
-                          onChange={(e) => handleInputChange('startingCapital', parseFloat(e.target.value))}
+                          value={editForm.startingCapital ?? 0}
+                          onChange={(e) => {
+                            const num = parseFloat(e.target.value);
+                            if (!isNaN(num)) handleInputChange('startingCapital', num < 0 ? 0 : num);
+                          }}
                         />
                       ) : formatCurrency(inv.startingCapital)}
                     </td>
@@ -271,9 +275,13 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                       {isEditing ? (
                         <input 
                           type="number" 
+                          min="0"
                           className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.highWaterMark || 0}
-                          onChange={(e) => handleInputChange('highWaterMark', parseFloat(e.target.value))}
+                          value={editForm.highWaterMark ?? 0}
+                          onChange={(e) => {
+                            const num = parseFloat(e.target.value);
+                            if (!isNaN(num)) handleInputChange('highWaterMark', num < 0 ? 0 : num);
+                          }}
                         />
                       ) : formatCurrency(inv.highWaterMark)}
                     </td>
@@ -281,9 +289,13 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                       {isEditing ? (
                         <input 
                           type="number" 
+                          min="0"
                           className="w-20 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.lossCarryover || 0}
-                          onChange={(e) => handleInputChange('lossCarryover', parseFloat(e.target.value))}
+                          value={editForm.lossCarryover ?? 0}
+                          onChange={(e) => {
+                            const num = parseFloat(e.target.value);
+                            if (!isNaN(num)) handleInputChange('lossCarryover', num < 0 ? 0 : num);
+                          }}
                         />
                       ) : formatCurrency(inv.lossCarryover)}
                     </td>
@@ -300,9 +312,18 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                         <div className="flex items-center gap-1">
                           <input 
                             type="number" 
+                            min="0"
+                            max="100"
                             className="w-16 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
                             value={editForm.customFeePercentage ?? editForm.feePercentage}
-                            onChange={(e) => handleInputChange('customFeePercentage', parseFloat(e.target.value))}
+                            onChange={(e) => {
+                               const num = parseFloat(e.target.value);
+                               if (!isNaN(num)) {
+                                  if (num > 100) handleInputChange('customFeePercentage', 100);
+                                  else if (num < 0) handleInputChange('customFeePercentage', 0);
+                                  else handleInputChange('customFeePercentage', num);
+                               }
+                            }}
                           />
                           <span className="text-xs text-slate-400">%</span>
                         </div>
@@ -328,9 +349,18 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                           {isEditing ? (
                             <input 
                               type="number" 
+                              min="0"
+                              max="100"
                               className="w-16 px-2 py-1 border rounded text-xs dark:bg-slate-950 dark:border-slate-700 dark:text-white"
                               value={editForm.ibCommissionRate || 0}
-                              onChange={(e) => handleInputChange('ibCommissionRate', parseFloat(e.target.value))}
+                              onChange={(e) => {
+                                 const num = parseFloat(e.target.value);
+                                 if (!isNaN(num)) {
+                                    if (num > 100) handleInputChange('ibCommissionRate', 100);
+                                    else if (num < 0) handleInputChange('ibCommissionRate', 0);
+                                    else handleInputChange('ibCommissionRate', num);
+                                 }
+                              }}
                             />
                           ) : (inv.ibCommissionRate ? `${inv.ibCommissionRate}%` : '0%')}
                         </td>
@@ -355,9 +385,13 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                       {isEditing ? (
                         <input 
                           type="number" 
+                          min="0"
                           className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.reinvestAmt || 0}
-                          onChange={(e) => handleInputChange('reinvestAmt', parseFloat(e.target.value))}
+                          value={editForm.reinvestAmt ?? 0}
+                          onChange={(e) => {
+                            const num = parseFloat(e.target.value);
+                            if (!isNaN(num)) handleInputChange('reinvestAmt', num < 0 ? 0 : num);
+                          }}
                         />
                       ) : formatCurrency(inv.reinvestAmt)}
                     </td>
@@ -365,9 +399,13 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                       {isEditing ? (
                         <input 
                           type="number" 
+                          min="0"
                           className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.cashPayout || 0}
-                          onChange={(e) => handleInputChange('cashPayout', parseFloat(e.target.value))}
+                          value={editForm.cashPayout ?? 0}
+                          onChange={(e) => {
+                            const num = parseFloat(e.target.value);
+                            if (!isNaN(num)) handleInputChange('cashPayout', num < 0 ? 0 : num);
+                          }}
                         />
                       ) : formatCurrency(inv.cashPayout)}
                     </td>
@@ -375,9 +413,13 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                       {isEditing ? (
                         <input 
                           type="number" 
+                          min="0"
                           className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.feeCollected || 0}
-                          onChange={(e) => handleInputChange('feeCollected', parseFloat(e.target.value))}
+                          value={editForm.feeCollected ?? 0}
+                          onChange={(e) => {
+                            const num = parseFloat(e.target.value);
+                            if (!isNaN(num)) handleInputChange('feeCollected', num < 0 ? 0 : num);
+                          }}
                         />
                       ) : formatCurrency(inv.feeCollected)}
                     </td>

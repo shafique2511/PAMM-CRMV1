@@ -262,10 +262,41 @@ export function TransactionsView({ transactions, investors, onAddTransaction, on
                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
                  <input 
                   type="number" 
+                  min="0"
                   placeholder="0.00" 
                   className="w-full pl-8 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm dark:text-white font-black" 
                   value={amount} 
-                  onChange={e=>setAmount(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setAmount('');
+                      return;
+                    }
+                    const num = parseFloat(val);
+                    if (!isNaN(num)) {
+                      let maxAvailable = Infinity;
+                      
+                      const managerWithdrawalTxs = transactions.filter(t => t.type === 'manager_withdrawal');
+                      const managerWithdrawals = managerWithdrawalTxs.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+                      const totalFeeCollected = investors.reduce((sum, item) => sum + (Number(item.feeCollected) || 0), 0);
+                      const derivedManagerWalletBalance = totalFeeCollected - managerWithdrawals;
+
+                      if (type === 'manager_withdrawal') {
+                        maxAvailable = derivedManagerWalletBalance;
+                      } else if (type === 'withdrawal' && investorId) {
+                        const inv = investors.find(i => i.id === investorId);
+                        maxAvailable = inv ? inv.endingCapital : Infinity;
+                      }
+                      
+                      if (num > maxAvailable) {
+                        setAmount(maxAvailable.toString());
+                      } else if (num < 0) {
+                        setAmount('0');
+                      } else {
+                        setAmount(val);
+                      }
+                    }
+                  }}
                 />
               </div>
             </div>

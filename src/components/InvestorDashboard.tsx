@@ -263,8 +263,25 @@ export function InvestorDashboard({ investor, history, transactions, trades = []
                          placeholder="0.00" 
                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm dark:text-white font-mono"
                          value={withdrawAmount}
-                         onChange={e => setWithdrawAmount(e.target.value)}
+                         onChange={e => {
+                           const val = e.target.value;
+                           if (val === '') {
+                             setWithdrawAmount('');
+                             return;
+                           }
+                           const num = parseFloat(val);
+                           if (!isNaN(num)) {
+                             if (num > investor.endingCapital) {
+                               setWithdrawAmount(investor.endingCapital.toString());
+                             } else if (num < 0) {
+                               setWithdrawAmount('0');
+                             } else {
+                               setWithdrawAmount(val);
+                             }
+                           }
+                         }}
                          max={investor.endingCapital}
+                         min="0"
                       />
                    </div>
                    <div className="space-y-1.5">

@@ -377,12 +377,28 @@ export function DashboardStats({ investors, transactions, trades = [], history =
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Amount to Withdraw</label>
                 <input 
                   type="number" 
-                  min="0.01"
+                  min="0"
                   max={managerWalletBalance}
                   step="0.01"
                   className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-cyan-500 outline-none font-bold"
                   value={withdrawAmount}
-                  onChange={e => setWithdrawAmount(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setWithdrawAmount('');
+                      return;
+                    }
+                    const num = parseFloat(val);
+                    if (!isNaN(num)) {
+                      if (num > managerWalletBalance) {
+                        setWithdrawAmount(managerWalletBalance.toString());
+                      } else if (num < 0) {
+                        setWithdrawAmount('0');
+                      } else {
+                        setWithdrawAmount(val);
+                      }
+                    }
+                  }}
                   placeholder="0.00"
                 />
               </div>

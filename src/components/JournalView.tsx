@@ -328,13 +328,18 @@ export function JournalView({ trades, onSyncMT5, onUpdateTrade, totalCapital, re
                                  </div>
                                  <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stop Loss (SL)</label>
-                                       <input 
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stop Loss (SL)</label>
+                                        <input 
                                           type="number" 
+                                          min="0"
                                           title="Stop Loss"
                                           className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm dark:text-white font-mono"
                                           value={editForm.sl || ''}
-                                          onChange={(e) => setEditForm({...editForm, sl: parseFloat(e.target.value)})}
+                                          onChange={(e) => {
+                                             const num = parseFloat(e.target.value);
+                                             if (!isNaN(num)) setEditForm({...editForm, sl: num < 0 ? 0 : num});
+                                             else if (e.target.value === '') setEditForm({...editForm, sl: undefined}); // optional 
+                                          }}
                                           disabled={readOnly}
                                        />
                                     </div>
@@ -342,10 +347,15 @@ export function JournalView({ trades, onSyncMT5, onUpdateTrade, totalCapital, re
                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Take Profit (TP)</label>
                                        <input 
                                           type="number" 
+                                          min="0"
                                           title="Take Profit"
                                           className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm dark:text-white font-mono"
                                           value={editForm.tp || ''}
-                                          onChange={(e) => setEditForm({...editForm, tp: parseFloat(e.target.value)})}
+                                          onChange={(e) => {
+                                             const num = parseFloat(e.target.value);
+                                             if (!isNaN(num)) setEditForm({...editForm, tp: num < 0 ? 0 : num});
+                                             else if (e.target.value === '') setEditForm({...editForm, tp: undefined});
+                                          }}
                                           disabled={readOnly}
                                        />
                                     </div>

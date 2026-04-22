@@ -118,10 +118,15 @@ export function AddInvestorModal({ onClose, onAdd, managers, availableGroups }: 
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Initial Deposit ({formData.baseCurrency})</label>
                 <input 
                   type="number" 
+                  min="0"
                   step="0.01"
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
                   value={formData.startingCapital}
-                  onChange={e => handleInputChange('startingCapital', parseFloat(e.target.value))}
+                  onChange={e => {
+                     const num = parseFloat(e.target.value);
+                     if (!isNaN(num) && num < 0) handleInputChange('startingCapital', 0);
+                     else handleInputChange('startingCapital', num);
+                  }}
                 />
               </div>
               <div className="space-y-1">
@@ -130,9 +135,18 @@ export function AddInvestorModal({ onClose, onAdd, managers, availableGroups }: 
                   <Percent className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                   <input 
                     type="number" 
+                    min="0"
+                    max="100"
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
                     value={formData.feePercentage}
-                    onChange={e => handleInputChange('feePercentage', parseFloat(e.target.value))}
+                    onChange={e => {
+                       const num = parseFloat(e.target.value);
+                       if (!isNaN(num)) {
+                         if (num > 100) handleInputChange('feePercentage', 100);
+                         else if (num < 0) handleInputChange('feePercentage', 0);
+                         else handleInputChange('feePercentage', num);
+                       }
+                    }}
                   />
                 </div>
               </div>
@@ -152,9 +166,18 @@ export function AddInvestorModal({ onClose, onAdd, managers, availableGroups }: 
                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">IB Rate (%)</label>
                     <input 
                       type="number" 
+                      min="0"
+                      max="100"
                       className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
                       value={formData.ibCommissionRate}
-                      onChange={e => handleInputChange('ibCommissionRate', parseFloat(e.target.value))}
+                      onChange={e => {
+                         const num = parseFloat(e.target.value);
+                         if (!isNaN(num)) {
+                           if (num > 100) handleInputChange('ibCommissionRate', 100);
+                           else if (num < 0) handleInputChange('ibCommissionRate', 0);
+                           else handleInputChange('ibCommissionRate', num);
+                         }
+                      }}
                     />
                   </div>
                 </div>

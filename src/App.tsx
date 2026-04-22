@@ -25,7 +25,7 @@ const INITIAL_MANAGERS: Manager[] = [
 import { hashPassword, setGlobalCurrency, formatCurrency } from './lib/utils';
 
 export default function App() {
-  const [user, setUser] = useState<{ role: 'admin' | 'investor', name: string, managerRole?: 'admin' | 'manager' | 'read_only' | 'custom', permissions?: any } | null>(() => {
+  const [user, setUser] = useState<{ id?: string, role: 'admin' | 'investor', name: string, managerRole?: 'admin' | 'manager' | 'read_only' | 'custom', permissions?: any } | null>(() => {
     try {
       const saved = localStorage.getItem('pamm_user');
       return saved ? JSON.parse(saved) : null;
@@ -44,21 +44,6 @@ export default function App() {
   const [periodProfit, setPeriodProfit] = useState<number>(0);
   const [brokerBalance, setBrokerBalance] = useState<number>(0);
 
-  const totalStartingCapital = investors.reduce((sum, inv) => sum + inv.startingCapital, 0);
-  
-  // Calculate current Manager Wallet Balance (fees collected but not yet withdrawn)
-  const managerWithdrawals = transactions
-    .filter(t => t.type === 'manager_withdrawal' && t.status === 'completed')
-    .reduce((sum, t) => sum + t.amount, 0);
-  const managerWalletBalance = investors.reduce((sum, inv) => sum + (inv.feeCollected || 0), 0) - managerWithdrawals;
-
-  const handleBrokerBalanceChange = (val: number) => {
-    setBrokerBalance(val);
-    // Professional PAMM logic: Total Equity = Investor Capital + Manager Earnings
-    // Profit should only be calculated on Top of the total starting equity
-    const totalStartingEquity = totalStartingCapital + managerWalletBalance;
-    setPeriodProfit(totalStartingEquity > 0 ? val - totalStartingEquity : val);
-  };
   const [showRolloverConfirm, setShowRolloverConfirm] = useState(false);
   const [showAddInvestor, setShowAddInvestor] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +52,42 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('pamm_darkMode') === 'true';
   });
+
+  const isAdmin = user?.role === 'admin';
+  const managedInvestors = user 
+    ? (isAdmin 
+        ? investors.filter(inv => user.managerRole === 'admin' || inv.managerId === user.id)
+        : investors.filter(inv => inv.investorName.toLowerCase() === user.name.toLowerCase()))
+    : investors;
+
+  const visibleInvestors = managedInvestors.filter(inv => 
+      !searchQuery ||
+      inv.investorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.group?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+  const totalStartingCapital = managedInvestors.reduce((sum, inv) => sum + inv.startingCapital, 0);
+  
+  const managedTransactions = transactions.filter(t => 
+    user?.managerRole === 'admin' || 
+    t.managerId === user?.id || 
+    (t.investorId && managedInvestors.some(i => i.id === t.investorId))
+  );
+
+  const managedHistory = periodHistory.filter(h => user?.managerRole === 'admin' || h.managerId === user?.id);
+  const managedTrades = trades.filter(t => user?.managerRole === 'admin' || t.managerId === user?.id);
+
+  // Calculate current Manager Wallet Balance (fees collected but not yet withdrawn)
+  const managerWithdrawals = transactions
+    .filter(t => t.type === 'manager_withdrawal' && t.status === 'completed' && (user?.managerRole === 'admin' || t.managerId === user?.id))
+    .reduce((sum, t) => sum + t.amount, 0);
+  const managerWalletBalance = managedInvestors.reduce((sum, inv) => sum + (inv.feeCollected || 0), 0) - managerWithdrawals;
+
+  const handleBrokerBalanceChange = (val: number) => {
+    setBrokerBalance(val);
+    const totalStartingEquity = totalStartingCapital + managerWalletBalance;
+    setPeriodProfit(totalStartingEquity > 0 ? val - totalStartingEquity : val);
+  };
 
   useEffect(() => {
     if (user) {
@@ -215,6 +236,7 @@ export default function App() {
     hashedPwd = await hashPassword(hashedPwd);
     
     const newInvestor = {
+      managerId: user?.id,
       ...investorData,
       password: hashedPwd,
       individualProfitShare: 0,
@@ -301,7 +323,7 @@ export default function App() {
   };
 
   const handleAddTransaction = async (t: Partial<Transaction>) => {
-    const newTx = { ...t, id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).substring(2, 15) } as Transaction;
+    const newTx = { managerId: user?.id, ...t, id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).substring(2, 15) } as Transaction;
     setTransactions([newTx, ...transactions]);
     logAction('Record Transaction', `Recorded ${t.type} of $${t.amount}${t.referenceId ? ` (Ref: ${t.referenceId})` : ''}`, 'transaction');
     if (supabase) {
@@ -355,28 +377,37 @@ export default function App() {
   };
 
   const handleSyncMT5 = async (): Promise<{ success: boolean, count: number, error?: string }> => {
-    const manager = managers[0];
+    const manager = user?.id ? (managers.find(m => m.id === user.id) || managers[0]) : managers[0];
     
     if (manager?.mt5RestApiUrl) {
       try {
-        // Example REST API call to a bridge like MetaApi or custom Flask server
-        const res = await fetch(`${manager.mt5RestApiUrl}/trades?login=${manager.mt5Login}&password=${manager.mt5Password}&server=${manager.mt5Server}`);
+        let apiUrl = manager.mt5RestApiUrl;
+        if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
+
+        if (window.location.protocol === 'https:' && apiUrl.startsWith('http://') && !apiUrl.includes('localhost') && !apiUrl.includes('127.0.0.1')) {
+           return { success: false, count: 0, error: "Mixed Content Blocked: You cannot call an http:// API from an https:// website. Please use an https:// URL (like ngrok)." };
+        }
+
+        const res = await fetch(`${apiUrl}/trades?login=${manager.mt5Login}&password=${manager.mt5Password}&server=${manager.mt5Server}`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
-            // Assuming the API returns an array of trades matching our Trade interface
-            setTrades(data);
-            if (supabase) {
-              // Upsert or insert logic depending on backend implementation
-              // For simplicity, we'll just insert new ones if we had a way to check, 
-              // but here we just replace or insert.
-            }
+            const enrichedData = data.map((t: any) => ({ ...t, managerId: manager.id }));
+            setTrades(enrichedData);
             return { success: true, count: data.length };
           }
+          return { success: false, count: 0, error: "No trades found on MT5 connection." };
+        } else {
+          return { success: false, count: 0, error: `MT5 Server HTTP ${res.status}: ${res.statusText}` };
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("MT5 REST API Sync failed", e);
-        return { success: false, count: 0, error: "Failed to connect to MT5 REST API. Falling back to mock data." };
+        
+        let errorMessage = "Failed to connect to MT5 REST API.";
+        if (e.message?.includes("Failed to fetch")) {
+            errorMessage = "Failed to fetch: Connection refused or CORS error. If testing locally from this HTTPS site, you MUST use an HTTPS tunnel (like ngrok) to expose your local API.";
+        }
+        return { success: false, count: 0, error: errorMessage };
       }
     }
 
@@ -386,6 +417,7 @@ export default function App() {
     const mockTrades: Trade[] = [
       {
         id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).substring(2, 15),
+        managerId: manager.id,
         ticket: Math.floor(Math.random() * 100000000).toString(),
         openTime: new Date(Date.now() - 86400000 * 2).toISOString(),
         closeTime: new Date(Date.now() - 86400000).toISOString(),
@@ -403,6 +435,7 @@ export default function App() {
       },
       {
         id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).substring(2, 15),
+        managerId: manager.id,
         ticket: Math.floor(Math.random() * 100000000).toString(),
         openTime: new Date(Date.now() - 86400000 * 3).toISOString(),
         closeTime: new Date(Date.now() - 86400000 * 2).toISOString(),
@@ -460,13 +493,17 @@ export default function App() {
   };
 
   const calculatePeriod = async () => {
-    const totalInvestorCapital = investors.reduce((sum, inv) => sum + inv.startingCapital, 0);
+    const totalInvestorCapital = managedInvestors.reduce((sum, inv) => sum + inv.startingCapital, 0);
     const totalStartingEquity = totalInvestorCapital + managerWalletBalance;
     
     // Calculate the growth rate of the entire master account
     const growthRate = totalStartingEquity > 0 ? periodProfit / totalStartingEquity : 0;
 
     const updated = investors.map(inv => {
+      if (isAdmin && user?.managerRole !== 'admin' && inv.managerId !== user?.id) {
+         return inv; // Leave unmanaged investors untouched
+      }
+
       // Investor's share of the growth
       const individualProfitShare = inv.startingCapital * growthRate;
       const sharePercentage = totalInvestorCapital > 0 ? (inv.startingCapital / totalInvestorCapital) * 100 : 0;
@@ -510,9 +547,10 @@ export default function App() {
     // Save snapshot to history
     const historyRecord: PeriodHistory = {
       id: window.crypto?.randomUUID?.() ?? Math.random().toString(36).substring(2, 15),
+      managerId: user?.id,
       date: new Date().toISOString(),
       totalProfit: periodProfit,
-      investorSnapshots: investors.map(inv => ({
+      investorSnapshots: managedInvestors.map(inv => ({
         investorId: inv.id,
         investorName: inv.investorName,
         startingCapital: inv.startingCapital,
@@ -532,7 +570,7 @@ export default function App() {
       }
     }
 
-    const totalInvestorCapital = investors.reduce((sum, inv) => sum + inv.startingCapital, 0);
+    const totalInvestorCapital = managedInvestors.reduce((sum, inv) => sum + inv.startingCapital, 0);
     const totalStartingEquity = totalInvestorCapital + managerWalletBalance;
     const growthRate = totalStartingEquity > 0 ? periodProfit / totalStartingEquity : 0;
     
@@ -540,17 +578,17 @@ export default function App() {
     const managerDirectProfit = managerWalletBalance * growthRate;
 
     const updated = investors.map(inv => {
+      // Only process rollover for managed investors (or all if admin global loop, but let's restrict logic cleanly)
+      if (isAdmin && user?.managerRole !== 'admin' && inv.managerId !== user?.id) {
+         return inv; // Leave unmanaged investors untouched
+      }
+
       // High Water Mark logic: new HWM is the max of current HWM or Ending Capital
       const adjustedHWM = Math.max(0, inv.highWaterMark - inv.cashPayout);
       const newHWM = Math.max(adjustedHWM, inv.endingCapital);
 
-      // Manager's new fee collected: Existing + Performance Fee from this investor
-      // AND a portion of the Manager's own direct profit (distributed across investors for simplicity in state, 
-      // or we can add it to a specific record. We'll add a share of direct profit to the first investor 
-      // or just ensure feeCollected is updated correctly.)
-      
       // Professional approach: We distribute the direct profit proportionally as if the manager was an investor
-      const managerProfitShareForThisRecord = investors.length > 0 ? (managerDirectProfit / investors.length) : 0;
+      const managerProfitShareForThisRecord = managedInvestors.length > 0 ? (managerDirectProfit / managedInvestors.length) : 0;
       const newFeeCollected = inv.feeCollected + (inv.yourFee || 0) + managerProfitShareForThisRecord;
 
       return {
@@ -585,6 +623,20 @@ export default function App() {
   const copySql = () => {
     const sql = `-- Comprehensive Database Setup for PAMM CRM
 -- If you already have these tables, run these ALTER commands to add missing fields:
+-- alter table managers add column if not exists "role" text;
+-- alter table managers add column if not exists "permissions" jsonb;
+-- alter table managers add column if not exists "baseCurrency" text;
+-- alter table managers add column if not exists "investorGroups" jsonb;
+-- alter table managers add column if not exists "defaultInvestorGroup" text;
+-- alter table managers add column if not exists "feeTiers" jsonb;
+-- alter table managers add column if not exists "enableIBModule" boolean;
+-- alter table managers add column if not exists "allowInvestorWithdrawals" boolean;
+-- alter table managers add column if not exists "showTradingJournalToInvestors" boolean;
+-- alter table managers add column if not exists "defaultFeePercentage" numeric;
+-- alter table managers add column if not exists "brandName" text;
+-- alter table managers add column if not exists "supportEmail" text;
+
+-- alter table investors add column if not exists "managerId" uuid references managers(id) on delete cascade;
 -- alter table investors add column if not exists "status" text default 'active';
 -- alter table investors add column if not exists "joinedAt" text;
 -- alter table investors add column if not exists "baseCurrency" text;
@@ -606,19 +658,37 @@ export default function App() {
 -- alter table investors add column if not exists "individualProfitShare" numeric;
 -- alter table investors add column if not exists "qrCode" text;
 -- alter table investors add column if not exists "bankAccount" text;
--- alter table managers add column if not exists "allowInvestorWithdrawals" boolean;
--- alter table managers add column if not exists "defaultFeePercentage" numeric;
--- alter table managers add column if not exists "showTradingJournalToInvestors" boolean;
--- alter table managers add column if not exists "brandName" text;
--- alter table managers add column if not exists "supportEmail" text;
--- alter table managers add column if not exists "baseCurrency" text;
--- alter table managers add column if not exists "investorGroups" jsonb;
--- alter table managers add column if not exists "defaultInvestorGroup" text;
--- alter table managers add column if not exists "feeTiers" jsonb;
--- alter table managers add column if not exists "enableIBModule" boolean;
+
+-- alter table transactions add column if not exists "managerId" uuid references managers(id) on delete cascade;
+-- alter table trades add column if not exists "managerId" uuid references managers(id) on delete cascade;
+-- alter table period_history add column if not exists "managerId" uuid references managers(id) on delete cascade;
+
+create table if not exists managers (
+  id uuid default gen_random_uuid() primary key,
+  username text,
+  password text,
+  name text,
+  "mt5Server" text,
+  "mt5Login" text,
+  "mt5Password" text,
+  "mt5RestApiUrl" text,
+  "baseCurrency" text,
+  "investorGroups" jsonb,
+  "defaultInvestorGroup" text,
+  "feeTiers" jsonb,
+  "role" text,
+  "permissions" jsonb,
+  "enableIBModule" boolean,
+  "allowInvestorWithdrawals" boolean,
+  "showTradingJournalToInvestors" boolean,
+  "defaultFeePercentage" numeric,
+  "brandName" text,
+  "supportEmail" text
+);
 
 create table if not exists investors (
   id uuid default gen_random_uuid() primary key,
+  "managerId" uuid references managers(id) on delete cascade,
   "investorName" text,
   "password" text,
   "group" text,
@@ -650,31 +720,9 @@ create table if not exists investors (
   "ibCommissionRate" numeric
 );
 
-create table if not exists managers (
-  id uuid default gen_random_uuid() primary key,
-  username text,
-  password text,
-  name text,
-  "mt5Server" text,
-  "mt5Login" text,
-  "mt5Password" text,
-  "mt5RestApiUrl" text,
-  "baseCurrency" text,
-  "investorGroups" jsonb,
-  "defaultInvestorGroup" text,
-  "feeTiers" jsonb,
-  "role" text,
-  "permissions" jsonb,
-  "enableIBModule" boolean,
-  "allowInvestorWithdrawals" boolean,
-  "showTradingJournalToInvestors" boolean,
-  "defaultFeePercentage" numeric,
-  "brandName" text,
-  "supportEmail" text
-);
-
 create table if not exists transactions (
   id uuid default gen_random_uuid() primary key,
+  "managerId" uuid references managers(id) on delete cascade,
   "investorId" uuid references investors(id) on delete cascade,
   type text,
   amount numeric,
@@ -689,6 +737,7 @@ create table if not exists transactions (
 
 create table if not exists trades (
   id uuid default gen_random_uuid() primary key,
+  "managerId" uuid references managers(id) on delete cascade,
   ticket text,
   "openTime" text,
   "closeTime" text,
@@ -707,6 +756,7 @@ create table if not exists trades (
 
 create table if not exists period_history (
   id uuid default gen_random_uuid() primary key,
+  "managerId" uuid references managers(id) on delete cascade,
   date text,
   "totalProfit" numeric,
   "investorSnapshots" jsonb
@@ -750,7 +800,7 @@ create table if not exists audit_logs (
     if (role === 'admin') {
       const manager = activeManagers.find(m => m.username?.toLowerCase() === username?.toLowerCase() && (m.password === password || m.password === hashedAttempt));
       if (manager) {
-        setUser({ role, name: manager.name || 'Admin', managerRole: manager.role || 'admin', permissions: manager.permissions });
+        setUser({ id: manager.id, role, name: manager.name || 'Admin', managerRole: manager.role || 'admin', permissions: manager.permissions });
         logAction('Login', `Manager ${manager.name || 'Admin'} logged in`, 'auth');
       } else {
         alert('Invalid manager credentials');
@@ -758,7 +808,7 @@ create table if not exists audit_logs (
     } else {
       const investor = activeInvestors.find(i => i.investorName?.toLowerCase() === name?.toLowerCase() && (i.password === password || i.password === hashedAttempt));
       if (investor) {
-        setUser({ role, name: investor.investorName });
+        setUser({ id: investor.id, role, name: investor.investorName });
         setActiveTab('dashboard');
         logAction('Login', `Investor ${investor.investorName} logged in`, 'auth');
       } else {
@@ -865,14 +915,6 @@ create table if not exists audit_logs (
     );
   }
 
-  const isAdmin = user.role === 'admin';
-  const visibleInvestors = (isAdmin 
-    ? investors 
-    : investors.filter(inv => inv.investorName.toLowerCase() === user.name.toLowerCase()))
-    .filter(inv => 
-      inv.investorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.group?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
   const currentInvestor = !isAdmin ? visibleInvestors[0] : null;
 
   const hasPermission = (key: string, defaultForRole: boolean) => {
@@ -956,26 +998,26 @@ create table if not exists audit_logs (
                 <>
                   <DashboardStats 
                     investors={visibleInvestors} 
-                    transactions={transactions} 
-                    trades={trades} 
-                    history={periodHistory} 
+                    transactions={managedTransactions} 
+                    trades={managedTrades} 
+                    history={managedHistory} 
                     isAdmin={isAdmin} 
                     onAddTransaction={handleAddTransaction}
                     brokerBalance={brokerBalance}
                   />
-                  <ReportsView investors={investors} transactions={transactions} />
+                  <ReportsView investors={managedInvestors} transactions={managedTransactions} />
                 </>
               ) : (
                 currentInvestor && (
                   <InvestorDashboard 
                     investor={currentInvestor} 
-                    history={periodHistory} 
-                    transactions={transactions} 
-                    trades={trades}
+                    history={managedHistory} 
+                    transactions={managedTransactions} 
+                    trades={managedTrades}
                     onUpdateInvestor={handleUpdateInvestor}
                     onAddTransaction={handleAddTransaction}
-                    allowWithdrawals={managers[0]?.allowInvestorWithdrawals || false}
-                    showTradingJournal={managers[0]?.showTradingJournalToInvestors || false}
+                    allowWithdrawals={(currentInvestor.managerId ? managers.find(m => m.id === currentInvestor.managerId)?.allowInvestorWithdrawals : managers[0]?.allowInvestorWithdrawals) || false}
+                    showTradingJournal={(currentInvestor.managerId ? managers.find(m => m.id === currentInvestor.managerId)?.showTradingJournalToInvestors : managers[0]?.showTradingJournalToInvestors) || false}
                   />
                 )
               )}
@@ -1113,8 +1155,8 @@ create table if not exists audit_logs (
 
           {activeTab === 'transactions' && isAdmin && (
             <TransactionsView 
-              transactions={transactions} 
-              investors={investors} 
+              transactions={managedTransactions} 
+              investors={managedInvestors} 
               onAddTransaction={handleAddTransaction} 
               onUpdateStatus={handleUpdateTransactionStatus}
               readOnly={isReadOnly('canManageTransactions')}
@@ -1123,33 +1165,33 @@ create table if not exists audit_logs (
 
           {activeTab === 'manager_withdrawals' && isAdmin && (
             <ManagerWithdrawalsView 
-              transactions={transactions}
-              investors={investors}
+              transactions={managedTransactions}
+              investors={managedInvestors}
               onUpdateStatus={handleUpdateTransactionStatus}
               readOnly={isReadOnly('canManageWithdrawals')}
             />
           )}
 
-          {activeTab === 'journal' && (isAdmin || managers[0]?.showTradingJournalToInvestors) && (
+          {activeTab === 'journal' && (isAdmin || (currentInvestor?.managerId && managers.find(m => m.id === currentInvestor.managerId)?.showTradingJournalToInvestors) || managers[0]?.showTradingJournalToInvestors) && (
             <JournalView 
-              trades={trades} 
+              trades={managedTrades} 
               onSyncMT5={handleSyncMT5} 
               onUpdateTrade={handleUpdateTrade}
-              totalCapital={investors.reduce((sum, inv) => sum + inv.startingCapital, 0)}
+              totalCapital={managedInvestors.reduce((sum, inv) => sum + inv.startingCapital, 0)}
               readOnly={!isAdmin || isReadOnly('canSyncMT5')}
             />
           )}
 
-          {activeTab === 'affiliates' && managers[0]?.enableIBModule && hasPermission('canViewAffiliates', true) && (
+          {activeTab === 'affiliates' && ((user?.id && managers.find(m => m.id === user.id)?.enableIBModule) || managers[0]?.enableIBModule) && hasPermission('canViewAffiliates', true) && (
             <AffiliatesView 
-              investors={investors} 
+              investors={managedInvestors} 
               currentUser={user} 
               isAdmin={isAdmin} 
             />
           )}
 
           {activeTab === 'reports' && isAdmin && hasPermission('canViewReports', true) && (
-            <ReportsView investors={investors} transactions={transactions} />
+            <ReportsView investors={managedInvestors} transactions={managedTransactions} />
           )}
 
           {activeTab === 'audit' && isAdmin && hasPermission('canViewAudit', user.managerRole === 'admin') && (
@@ -1160,9 +1202,9 @@ create table if not exists audit_logs (
             isAdmin && user?.managerRole ? (
               <ManagerProfileView 
                 manager={managers.find(m => m.username === user.name) || managers[0]}
-                investors={investors}
-                transactions={transactions}
-                trades={trades}
+                investors={managedInvestors}
+                transactions={managedTransactions}
+                trades={managedTrades}
                 auditLogs={auditLogs}
                 onUpdateManager={handleUpdateManager}
               />

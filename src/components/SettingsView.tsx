@@ -541,9 +541,12 @@ create table if not exists period_history (id text primary key, date text, "tota
                     max="100"
                     value={defaultFee}
                     onChange={e => {
-                      const val = parseFloat(e.target.value);
+                      let val = parseFloat(e.target.value);
+                      if (isNaN(val)) return;
+                      if (val > 100) val = 100;
+                      if (val < 0) val = 0;
                       setDefaultFee(val);
-                      if (mainManager && !isNaN(val)) onUpdateManager(mainManager.id, { defaultFeePercentage: val });
+                      if (mainManager) onUpdateManager(mainManager.id, { defaultFeePercentage: val });
                     }}
                     className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-right font-black"
                   />
@@ -580,17 +583,31 @@ create table if not exists period_history (id text primary key, date text, "tota
               <div className="flex flex-col sm:flex-row items-center gap-3">
                 <input 
                   type="number" 
+                  min="0"
                   placeholder="Min ($)" 
                   className="w-full sm:flex-1 px-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium placeholder-slate-400"
                   value={newTierMinAmt}
-                  onChange={e => setNewTierMinAmt(e.target.value)}
+                  onChange={e => {
+                     const num = parseFloat(e.target.value);
+                     if (!isNaN(num) && num < 0) setNewTierMinAmt('0');
+                     else setNewTierMinAmt(e.target.value);
+                  }}
                 />
                 <input 
                   type="number" 
+                  min="0"
+                  max="100"
                   placeholder="Fee (%)" 
                   className="w-full sm:flex-1 px-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium placeholder-slate-400"
                   value={newTierPct}
-                  onChange={e => setNewTierPct(e.target.value)}
+                  onChange={e => {
+                     const num = parseFloat(e.target.value);
+                     if (!isNaN(num)) {
+                        if (num > 100) setNewTierPct('100');
+                        else if (num < 0) setNewTierPct('0');
+                        else setNewTierPct(e.target.value);
+                     } else setNewTierPct(e.target.value);
+                  }}
                 />
                 <button 
                   onClick={handleAddTier}
