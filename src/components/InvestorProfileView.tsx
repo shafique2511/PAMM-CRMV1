@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Investor } from '../types';
-import { User, Key, Building2, QrCode, Save, CheckCircle2, Phone, Flag, Mail, Bell } from 'lucide-react';
+import { Investor, Manager } from '../types';
+import { User, Key, Building2, QrCode, Save, CheckCircle2, Phone, Flag, Mail, Bell, FileText } from 'lucide-react';
 import { hashPassword, formatCurrency } from '../lib/utils';
+import { InvoiceModal } from './InvoiceModal';
 
-export function InvestorProfileView({ investor, onUpdateInvestor }: { investor: Investor, onUpdateInvestor: (id: string, updates: Partial<Investor>) => void }) {
+export function InvestorProfileView({ investor, manager, onUpdateInvestor }: { investor: Investor, manager?: Manager, onUpdateInvestor: (id: string, updates: Partial<Investor>) => void }) {
   const [newPassword, setNewPassword] = useState('');
+  const [showInvoice, setShowInvoice] = useState(false);
   
   // Form states
   const [bankAccount, setBankAccount] = useState(investor.bankAccount || '');
@@ -40,6 +42,13 @@ export function InvestorProfileView({ investor, onUpdateInvestor }: { investor: 
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in duration-500">
+      {showInvoice && (
+        <InvoiceModal 
+          investor={investor} 
+          manager={manager}
+          onClose={() => setShowInvoice(false)} 
+        />
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center shadow-inner relative overflow-hidden">
@@ -51,13 +60,22 @@ export function InvestorProfileView({ investor, onUpdateInvestor }: { investor: 
             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Manage your personal details, alerts, and payment preferences</p>
           </div>
         </div>
-        <button 
-          onClick={handleUpdateProfile}
-          className="flex items-center gap-2 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl hover:bg-slate-800 dark:hover:bg-slate-100 font-bold shadow-lg active:scale-95 transition-all w-full md:w-auto justify-center"
-        >
-          <Save className="w-4 h-4" />
-          Save Changes
-        </button>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <button 
+            onClick={() => setShowInvoice(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 font-bold shadow-sm active:scale-95 transition-all justify-center w-full md:w-auto"
+          >
+            <FileText className="w-4 h-4" />
+            Show Invoice
+          </button>
+          <button 
+            onClick={handleUpdateProfile}
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl hover:bg-slate-800 dark:hover:bg-slate-100 font-bold shadow-lg active:scale-95 transition-all justify-center w-full md:w-auto"
+          >
+            <Save className="w-4 h-4" />
+            Save Changes
+          </button>
+        </div>
       </div>
 
       {statusMessage && (

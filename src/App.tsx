@@ -47,6 +47,7 @@ export default function App() {
   const [showRolloverConfirm, setShowRolloverConfirm] = useState(false);
   const [showAddInvestor, setShowAddInvestor] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [managerFilter, setManagerFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
@@ -54,9 +55,18 @@ export default function App() {
   });
 
   const isAdmin = user?.role === 'admin';
+  const isSuperAdmin = user?.managerRole === 'admin';
+
   const managedInvestors = user 
     ? (isAdmin 
-        ? investors.filter(inv => user.managerRole === 'admin' || inv.managerId === user.id)
+        ? investors.filter(inv => {
+            if (!isSuperAdmin && inv.managerId !== user.id) return false;
+            if (isSuperAdmin) {
+              if (managerFilter === 'self' && inv.managerId !== user.id) return false;
+              if (managerFilter !== 'all' && managerFilter !== 'self' && inv.managerId !== managerFilter) return false;
+            }
+            return true;
+          })
         : investors.filter(inv => inv.investorName.toLowerCase() === user.name.toLowerCase()))
     : investors;
 
@@ -68,18 +78,36 @@ export default function App() {
 
   const totalStartingCapital = managedInvestors.reduce((sum, inv) => sum + inv.startingCapital, 0);
   
-  const managedTransactions = transactions.filter(t => 
-    user?.managerRole === 'admin' || 
-    t.managerId === user?.id || 
-    (t.investorId && managedInvestors.some(i => i.id === t.investorId))
-  );
+  const managedTransactions = transactions.filter(t => {
+    if (!isSuperAdmin) {
+      return t.managerId === user?.id || (t.investorId && managedInvestors.some(i => i.id === t.investorId));
+    }
+    if (managerFilter === 'self') {
+      return t.managerId === user?.id || (t.investorId && managedInvestors.some(i => i.id === t.investorId && i.managerId === user?.id));
+    }
+    if (managerFilter !== 'all') {
+      return t.managerId === managerFilter || (t.investorId && managedInvestors.some(i => i.id === t.investorId && i.managerId === managerFilter));
+    }
+    return true; // all
+  });
 
-  const managedHistory = periodHistory.filter(h => user?.managerRole === 'admin' || h.managerId === user?.id);
-  const managedTrades = trades.filter(t => user?.managerRole === 'admin' || t.managerId === user?.id);
+  const managedHistory = periodHistory.filter(h => {
+    if (!isSuperAdmin) return h.managerId === user?.id;
+    if (managerFilter === 'self') return h.managerId === user?.id;
+    if (managerFilter !== 'all') return h.managerId === managerFilter;
+    return true;
+  });
+
+  const managedTrades = trades.filter(t => {
+    if (!isSuperAdmin) return t.managerId === user?.id;
+    if (managerFilter === 'self') return t.managerId === user?.id;
+    if (managerFilter !== 'all') return t.managerId === managerFilter;
+    return true;
+  });
 
   // Calculate current Manager Wallet Balance (fees collected but not yet withdrawn)
-  const managerWithdrawals = transactions
-    .filter(t => t.type === 'manager_withdrawal' && t.status === 'completed' && (user?.managerRole === 'admin' || t.managerId === user?.id))
+  const managerWithdrawals = managedTransactions
+    .filter(t => t.type === 'manager_withdrawal' && t.status === 'completed')
     .reduce((sum, t) => sum + t.amount, 0);
   const managerWalletBalance = managedInvestors.reduce((sum, inv) => sum + (inv.feeCollected || 0), 0) - managerWithdrawals;
 
@@ -209,10 +237,11 @@ export default function App() {
     logAction('Update Investor', `Updated investor ${investor?.investorName || id}`, 'investor');
     if (supabase) {
       try {
-        await supabase.from('investors').update(updates).eq('id', id);
+        const { error } = await supabase.from('investors').update(updates).eq('id', id);
+        if (error) throw error;
       } catch (e) {
         console.error("Failed to update investor", e);
-        alert("Failed to update investor in database.");
+        alert("Failed to update investor in database. Error: " + (e.message || String(e)));
       }
     }
   };
@@ -223,10 +252,11 @@ export default function App() {
     logAction('Delete Investor', `Deleted investor ${investor?.investorName || id}`, 'investor');
     if (supabase) {
       try {
-        await supabase.from('investors').delete().eq('id', id);
+        const { error } = await supabase.from('investors').delete().eq('id', id);
+        if (error) throw error;
       } catch (e) {
         console.error("Failed to delete investor", e);
-        alert("Failed to delete investor from database.");
+        alert("Failed to delete investor from database. Error: " + (e.message || String(e)));
       }
     }
   };
@@ -236,8 +266,8 @@ export default function App() {
     hashedPwd = await hashPassword(hashedPwd);
     
     const newInvestor = {
-      managerId: user?.id,
       ...investorData,
+      managerId: investorData.managerId || user?.id,
       password: hashedPwd,
       individualProfitShare: 0,
       yourFee: 0,
@@ -251,11 +281,12 @@ export default function App() {
     logAction('Add Investor', `Onboarded new investor: ${investorData.investorName}`, 'investor');
     if (supabase) {
       try {
-        const { data } = await supabase.from('investors').insert([newInvestor]).select();
+        const { data, error } = await supabase.from('investors').insert([newInvestor]).select();
+        if (error) throw error;
         if (data && data[0]) setInvestors([...investors, data[0]]);
       } catch (e) {
         console.error("Failed to add investor", e);
-        alert("Failed to add investor to database.");
+        alert("Failed to add investor to database. Error: " + (e.message || String(e)));
       }
     } else {
       setInvestors([...investors, { ...newInvestor, id: Math.random().toString(36).substr(2, 9) }]);
@@ -272,7 +303,8 @@ export default function App() {
     logAction('Add Manager', `Created new manager ${m.name}`, 'system');
     if (supabase) {
       try {
-        await supabase.from('managers').insert([newManager]);
+        const { error } = await supabase.from('managers').insert([newManager]);
+        if (error) throw error;
       } catch (e) {
         console.error("Failed to add manager", e);
       }
@@ -315,7 +347,8 @@ export default function App() {
     logAction('Delete Manager', `Deleted manager account`, 'system');
     if (supabase) {
       try {
-        await supabase.from('managers').delete().eq('id', id);
+        const { error } = await supabase.from('managers').delete().eq('id', id);
+        if (error) throw error;
       } catch (e) {
         console.error("Failed to delete manager", e);
       }
@@ -328,10 +361,11 @@ export default function App() {
     logAction('Record Transaction', `Recorded ${t.type} of $${t.amount}${t.referenceId ? ` (Ref: ${t.referenceId})` : ''}`, 'transaction');
     if (supabase) {
       try {
-        await supabase.from('transactions').insert([newTx]);
+        const { error } = await supabase.from('transactions').insert([newTx]);
+        if (error) throw error;
       } catch (e) {
         console.error("Failed to add transaction", e);
-        alert("Failed to record transaction in database.");
+        alert("Failed to record transaction in database. Error: " + (e.message || String(e)));
       }
     }
   };
@@ -369,7 +403,8 @@ export default function App() {
 
     if (supabase) {
       try {
-        await supabase.from('transactions').update({ status }).eq('id', id);
+        const { error } = await supabase.from('transactions').update({ status }).eq('id', id);
+        if (error) throw error;
       } catch (e) {
         console.error("Failed to update transaction", e);
       }
@@ -485,7 +520,8 @@ export default function App() {
     logAction('update', `Updated trade ${trade?.ticket || id}`, 'trade');
     if (supabase) {
       try {
-        await supabase.from('trades').update(updates).eq('id', id);
+        const { error } = await supabase.from('trades').update(updates).eq('id', id);
+        if (error) throw error;
       } catch (e) {
         console.error("Failed to update trade", e);
       }
@@ -500,8 +536,10 @@ export default function App() {
     const growthRate = totalStartingEquity > 0 ? periodProfit / totalStartingEquity : 0;
 
     const updated = investors.map(inv => {
-      if (isAdmin && user?.managerRole !== 'admin' && inv.managerId !== user?.id) {
-         return inv; // Leave unmanaged investors untouched
+      const isManagedList = managedInvestors.some(mInv => mInv.id === inv.id);
+      
+      if (!isManagedList) {
+         return inv; // Leave unfiltered or unmanaged investors untouched
       }
 
       // Investor's share of the growth
@@ -522,6 +560,7 @@ export default function App() {
       const netProfit = individualProfitShare - yourFee;
       // Ending capital is after performance fee and cash payout
       const endingCapital = inv.startingCapital + netProfit - inv.cashPayout;
+      const reinvestAmt = netProfit - inv.cashPayout;
 
       return {
         ...inv,
@@ -530,6 +569,7 @@ export default function App() {
         yourFee,
         netProfit,
         endingCapital,
+        reinvestAmt,
         unpaidFee: inv.unpaidFee
       };
     });
@@ -537,8 +577,14 @@ export default function App() {
     setInvestors(updated);
 
     if (supabase) {
-      for (const inv of updated) {
-        await supabase.from('investors').update(inv).eq('id', inv.id);
+      try {
+        for (const inv of updated) {
+          const { error } = await supabase.from('investors').update(inv).eq('id', inv.id);
+          if (error) throw error;
+        }
+      } catch (e: any) {
+        console.error("Failed to update investors on calculate", e);
+        alert("Failed to calculate investor records in database. Error: " + (e.message || String(e)));
       }
     }
   };
@@ -564,7 +610,8 @@ export default function App() {
     
     if (supabase) {
       try {
-        await supabase.from('period_history').insert([historyRecord]);
+        const { error } = await supabase.from('period_history').insert([historyRecord]);
+        if (error) throw error;
       } catch (e) {
         console.error("Failed to save period history", e);
       }
@@ -578,9 +625,10 @@ export default function App() {
     const managerDirectProfit = managerWalletBalance * growthRate;
 
     const updated = investors.map(inv => {
-      // Only process rollover for managed investors (or all if admin global loop, but let's restrict logic cleanly)
-      if (isAdmin && user?.managerRole !== 'admin' && inv.managerId !== user?.id) {
-         return inv; // Leave unmanaged investors untouched
+      const isManagedList = managedInvestors.some(mInv => mInv.id === inv.id);
+      
+      if (!isManagedList) {
+         return inv; // Leave unfiltered or unmanaged investors untouched
       }
 
       // High Water Mark logic: new HWM is the max of current HWM or Ending Capital
@@ -589,7 +637,7 @@ export default function App() {
 
       // Professional approach: We distribute the direct profit proportionally as if the manager was an investor
       const managerProfitShareForThisRecord = managedInvestors.length > 0 ? (managerDirectProfit / managedInvestors.length) : 0;
-      const newFeeCollected = inv.feeCollected + (inv.yourFee || 0) + managerProfitShareForThisRecord;
+      const newFeeCollected = (inv.feeCollected || 0) + (inv.yourFee || 0) + managerProfitShareForThisRecord;
 
       return {
         ...inv,
@@ -612,10 +660,12 @@ export default function App() {
     if (supabase) {
       try {
         for (const inv of updated) {
-          await supabase.from('investors').update(inv).eq('id', inv.id);
+          const { error } = await supabase.from('investors').update(inv).eq('id', inv.id);
+          if (error) throw error;
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("Failed to update investors on rollover", e);
+        alert("Failed to rollover records in database. Error: " + (e.message || String(e)));
       }
     }
   };
@@ -972,10 +1022,31 @@ create table if not exists audit_logs (
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
+              {isSuperAdmin && (
+                <div className="relative shrink-0">
+                  <select
+                    className="pl-3 pr-8 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm font-semibold text-slate-700 dark:text-slate-200 appearance-none shadow-inner"
+                    value={managerFilter}
+                    onChange={e => setManagerFilter(e.target.value)}
+                  >
+                    <option value="all">Global: All Managers</option>
+                    <option value="self">My Accounts Only</option>
+                    <optgroup label="Sub-Managers">
+                      {managers.filter(m => m.id !== user.id).map(m => (
+                        <option key={m.id} value={m.id}>Manager: {m.name}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                  </div>
+                </div>
+              )}
+              
               <button 
                 onClick={() => setDarkMode(!darkMode)}
-                className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
+                className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm shrink-0"
                 title="Toggle Dark Mode"
               >
                 {darkMode ? '☀️ Light' : '🌙 Dark'}
@@ -983,7 +1054,7 @@ create table if not exists audit_logs (
               {isAdmin && activeTab === 'investors' && !isReadOnly('canEditInvestors') && (
                 <button 
                   onClick={() => setShowAddInvestor(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 border border-blue-500 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm shadow-blue-500/20"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 border border-blue-500 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm shadow-blue-500/20 shrink-0"
                 >
                   <Plus className="w-4 h-4" />
                   Add Investor
@@ -1108,15 +1179,17 @@ create table if not exists audit_logs (
 
               {isAdmin && (
                 <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
-                  <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="text" 
-                      placeholder="Search name or group..."
-                      className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm text-sm dark:text-white"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                    />
+                  <div className="flex gap-4 flex-1">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Search name or group..."
+                        className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm text-sm dark:text-white"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                      />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-2 flex items-center gap-1 shrink-0">
@@ -1143,6 +1216,7 @@ create table if not exists audit_logs (
 
               <InvestorsTable 
                 investors={visibleInvestors} 
+                managers={managers}
                 availableGroups={managers[0]?.investorGroups || ['Default', 'VIP', 'Standard']}
                 enableIBModule={managers[0]?.enableIBModule || false}
                 onUpdateInvestor={handleUpdateInvestor}
@@ -1211,6 +1285,7 @@ create table if not exists audit_logs (
             ) : currentInvestor ? (
               <InvestorProfileView 
                 investor={currentInvestor}
+                manager={managers.find(m => m.id === currentInvestor.managerId)}
                 onUpdateInvestor={handleUpdateInvestor}
               />
             ) : null
@@ -1232,6 +1307,7 @@ create table if not exists audit_logs (
           onClose={() => setShowAddInvestor(false)}
           onAdd={handleAddInvestor}
           managers={managers}
+          currentUser={user}
           availableGroups={managers[0]?.investorGroups || ['Default']}
         />
       )}

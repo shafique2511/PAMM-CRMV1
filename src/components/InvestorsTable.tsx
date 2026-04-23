@@ -7,6 +7,7 @@ import { InvoiceModal } from './InvoiceModal';
 
 interface InvestorsTableProps {
   investors: Investor[];
+  managers?: import('../types').Manager[];
   availableGroups: string[];
   enableIBModule?: boolean;
   onUpdateInvestor: (id: string, updates: Partial<Investor>) => void;
@@ -17,7 +18,7 @@ interface InvestorsTableProps {
 
 type SortKey = keyof Investor | 'roi' | 'managerProfit';
 
-export function InvestorsTable({ investors, availableGroups, enableIBModule, onUpdateInvestor, onDeleteInvestor, isAdmin, readOnly }: InvestorsTableProps) {
+export function InvestorsTable({ investors, managers = [], availableGroups, enableIBModule, onUpdateInvestor, onDeleteInvestor, isAdmin, readOnly }: InvestorsTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Investor>>({});
   const [showQR, setShowQR] = useState<string | null>(null);
@@ -105,14 +106,15 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
       
       if (field === 'feeCollected') {
         const collected = safeNum(value);
-        // Base total debt before any collections happened is derived from the original unedited record
+        // Base total debt before any collections happened is derived from the historical record
         // to prevent cyclic mutations as the user types multiple digits.
+        // NOTE: We DO NOT include `originalYourFee` here because active floating fees 
+        // haven't been locked in yet (could change with market) and cannot be collected until Rollover.
         const originalUnpaid = safeNum(originalInvestor.unpaidFee);
         const originalCollected = safeNum(originalInvestor.feeCollected);
-        const originalYourFee = safeNum(originalInvestor.yourFee);
         
-        const absoluteTotalOwed = originalUnpaid + originalCollected + originalYourFee;
-        updates.unpaidFee = Math.max(0, absoluteTotalOwed - collected - originalYourFee);
+        const historicalAbsoluteOwed = originalUnpaid + originalCollected;
+        updates.unpaidFee = Math.max(0, historicalAbsoluteOwed - collected);
       }
 
       return updates;
@@ -160,6 +162,7 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
             <thead className="text-[11px] text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-900/50">
               <tr>
                 <SortHeader label="Account" sortKey="investorName" />
+                {isAdmin && <SortHeader label="Manager" sortKey="managerId" />}
                 <SortHeader label="Status" sortKey="status" />
                 <SortHeader label="Group" sortKey="group" />
                 <th className="px-4 py-4 font-bold whitespace-nowrap border-b dark:border-slate-700">Access Key</th>
@@ -212,6 +215,13 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                         )}
                       </div>
                     </td>
+                    {isAdmin && (
+                      <td className="px-4 py-4">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                           {managers.find(m => m.id === inv.managerId)?.name || 'Admin HQ'}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-4 py-4">
                       {isEditing ? (
                         <select 
@@ -424,16 +434,20 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
                       ) : formatCurrency(inv.feeCollected)}
                     </td>
                     <td className="px-4 py-4 font-bold text-indigo-600 dark:text-indigo-400">
-                      {formatCurrency((Number(inv.feeCollected) || 0) + (Number(inv.unpaidFee) || 0) + (Number(inv.yourFee) || 0))}
+                      {formatCurrency(
+                        (Number(isEditing ? editForm.feeCollected : inv.feeCollected) || 0) + 
+                        (Number(isEditing ? editForm.unpaidFee : inv.unpaidFee) || 0) + 
+                        (Number(inv.yourFee) || 0)
+                      )}
                     </td>
                     <td className="px-4 py-4 font-black text-slate-900 dark:text-white">
-                      {formatCurrency(inv.endingCapital)}
+                      {formatCurrency(isEditing ? editForm.endingCapital : inv.endingCapital)}
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] uppercase font-bold text-slate-400">Bal:</span>
-                          <span className="font-bold text-orange-600">{formatCurrency(inv.unpaidFee)}</span>
+                          <span className="font-bold text-orange-600">{formatCurrency(isEditing ? editForm.unpaidFee : inv.unpaidFee)}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {inv.bankAccount && <Circle className="w-1.5 h-1.5 fill-blue-500 text-blue-500" />}
@@ -518,7 +532,8 @@ export function InvestorsTable({ investors, availableGroups, enableIBModule, onU
 
       {invoiceInvestor && (
         <InvoiceModal 
-          investor={invoiceInvestor} 
+          investor={invoiceInvestor}
+          manager={managers.find(m => m.id === invoiceInvestor.managerId)}
           onClose={() => setInvoiceInvestor(null)} 
         />
       )}

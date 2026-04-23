@@ -811,6 +811,7 @@ create table if not exists period_history (id text primary key, date text, "tota
                     <div>
                       <p className="font-bold text-slate-900 dark:text-white">{m.name}</p>
                       <p className="text-sm font-medium text-slate-500 dark:text-slate-400">@{m.username}</p>
+                      <p className="text-xs font-mono text-slate-400 mt-0.5">ID: {m.id}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">

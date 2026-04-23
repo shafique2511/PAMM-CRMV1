@@ -6,12 +6,16 @@ interface AddInvestorModalProps {
   onClose: () => void;
   onAdd: (data: Partial<Investor>) => void;
   managers: Manager[];
+  currentUser?: { id?: string; name: string; role: string; managerRole?: string } | null;
   availableGroups: string[];
 }
 
-export function AddInvestorModal({ onClose, onAdd, managers, availableGroups }: AddInvestorModalProps) {
-  const manager = managers[0];
+export function AddInvestorModal({ onClose, onAdd, managers, currentUser, availableGroups }: AddInvestorModalProps) {
+  const isSuperAdmin = currentUser?.managerRole === 'admin';
+  const manager = managers.find(m => m.id === currentUser?.id) || managers[0];
+
   const [formData, setFormData] = useState<Partial<Investor>>({
+    managerId: manager?.id,
     investorName: '',
     password: 'password123',
     group: manager?.defaultInvestorGroup || availableGroups[0] || 'Default',
@@ -68,6 +72,21 @@ export function AddInvestorModal({ onClose, onAdd, managers, availableGroups }: 
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 <Shield className="w-3 h-3" /> Identity & Access
               </h3>
+              {managers.length > 1 && isSuperAdmin && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Assigned Manager</label>
+                  <select 
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
+                    value={formData.managerId || ''}
+                    onChange={e => handleInputChange('managerId', e.target.value)}
+                  >
+                    <option value="" disabled>Select Manager</option>
+                    {managers.map(m => (
+                      <option key={m.id} value={m.id}>{m.name} ({m.role || 'Admin'})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="space-y-1">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Investor Full Name</label>
                 <input 
