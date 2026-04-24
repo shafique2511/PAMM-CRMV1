@@ -114,7 +114,10 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
         const originalCollected = safeNum(originalInvestor.feeCollected);
         
         const historicalAbsoluteOwed = originalUnpaid + originalCollected;
-        updates.unpaidFee = Math.max(0, historicalAbsoluteOwed - collected);
+        
+        // Remove Math.max floor. We allow it to mathematically dip into a negative (Advance Payment) 
+        // state to guarantee that Fee Collected + Debt will ALWAYS strictly equal Mathematical Manager Profit.
+        updates.unpaidFee = historicalAbsoluteOwed - collected;
       }
 
       return updates;

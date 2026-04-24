@@ -41,6 +41,10 @@ export function AuditLogView({ logs, onClearLogs }: { logs: AuditLog[], onClearL
     return result;
   }, [logs, filterType, searchTerm, sortConfig]);
 
+  const lastClearLog = useMemo(() => {
+    return logs.find(l => l.action === 'Clear Audit Logs');
+  }, [logs]);
+
   const SortHeader = ({ label, sortKey }: { label: string, sortKey: SortKey }) => (
     <th 
       className="px-6 py-5 font-bold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors group"
@@ -63,6 +67,12 @@ export function AuditLogView({ logs, onClearLogs }: { logs: AuditLog[], onClearL
           <div>
             <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Audit Logs</h2>
             <p className="text-slate-500 dark:text-slate-400 font-medium">System activity, security events, and administrative tracking.</p>
+            {lastClearLog && (
+              <p className="text-xs font-semibold text-rose-500 dark:text-rose-400 mt-1 flex items-center gap-1">
+                <Trash2 className="w-3.5 h-3.5" />
+                Last cleared by {lastClearLog.userName} on {new Date(lastClearLog.timestamp).toLocaleString()}
+              </p>
+            )}
           </div>
         </div>
 

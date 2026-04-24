@@ -637,13 +637,26 @@ export default function App() {
 
       // Professional approach: We distribute the direct profit proportionally as if the manager was an investor
       const managerProfitShareForThisRecord = managedInvestors.length > 0 ? (managerDirectProfit / managedInvestors.length) : 0;
-      const newFeeCollected = (inv.feeCollected || 0) + (inv.yourFee || 0) + managerProfitShareForThisRecord;
+      
+      // Accrue all new generated fees into Debt (unpaidFee) instead of instantly collecting them!
+      const newUnpaidFee = (inv.unpaidFee || 0) + (inv.yourFee || 0) + managerProfitShareForThisRecord;
+
+      const nextLossCarryover = inv.netProfit < 0 
+           ? (Number(inv.lossCarryover) || 0) + Math.abs(inv.netProfit) 
+           : Math.max(0, (Number(inv.lossCarryover) || 0) - (Number(inv.individualProfitShare) || 0));
+
+      const newStartingCapital = Number(inv.endingCapital) || 0;
+      // Using newTotalInvestorCapital mathematically ensures the share percentage isn't stale for the new period
+      const newTotalInvestorCapital = managedInvestors.reduce((sum, m) => sum + (Number(m.endingCapital) || 0), 0);
+      const newSharePercentage = newTotalInvestorCapital > 0 ? (newStartingCapital / newTotalInvestorCapital) * 100 : 0;
 
       return {
         ...inv,
-        startingCapital: inv.endingCapital,
+        startingCapital: newStartingCapital,
         highWaterMark: newHWM,
-        feeCollected: newFeeCollected,
+        unpaidFee: newUnpaidFee,
+        lossCarryover: nextLossCarryover,
+        sharePercentage: newSharePercentage,
         individualProfitShare: 0,
         yourFee: 0,
         netProfit: 0,
