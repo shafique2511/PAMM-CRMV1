@@ -576,6 +576,106 @@ export default function App() {
       ? managers.find((m) => m.id === user.id) || managers[0]
       : managers[0];
 
+    if (
+      manager?.myfxbookEmail &&
+      manager?.myfxbookPassword &&
+      manager?.myfxbookAccountId
+    ) {
+      try {
+        const corsProxy = "https://api.allorigins.win/get?url=";
+
+        // 1. Get Session
+        const loginUrl = encodeURIComponent(
+          `https://www.myfxbook.com/api/login.json?email=${encodeURIComponent(manager.myfxbookEmail)}&password=${encodeURIComponent(manager.myfxbookPassword)}`,
+        );
+        const loginRes = await fetch(`${corsProxy}${loginUrl}`);
+        if (loginRes.ok) {
+          const loginDataWrapper = await loginRes.json();
+          const loginData = JSON.parse(loginDataWrapper.contents);
+          if (!loginData.error && loginData.session) {
+            const session = loginData.session;
+
+            // 2. Get history
+            const historyUrl = encodeURIComponent(
+              `https://www.myfxbook.com/api/get-history.json?session=${session}&id=${manager.myfxbookAccountId}`,
+            );
+            const historyRes = await fetch(`${corsProxy}${historyUrl}`);
+            if (historyRes.ok) {
+              const historyDataWrapper = await historyRes.json();
+              const historyData = JSON.parse(historyDataWrapper.contents);
+              if (!historyData.error && historyData.history) {
+                const parsedTrades: Trade[] = historyData.history.map(
+                  (t: any) => {
+                    // Format dates if needed
+                    let openTime =
+                      t.openTime ||
+                      new Date(Date.now() - 86400000).toISOString();
+                    let closeTime = t.closeTime || new Date().toISOString();
+
+                    try {
+                      if (openTime.includes("/"))
+                        openTime = openTime.replace(/\//g, "-");
+                      if (closeTime.includes("/"))
+                        closeTime = closeTime.replace(/\//g, "-");
+                    } catch (e) {}
+
+                    return {
+                      id:
+                        window.crypto?.randomUUID?.() ??
+                        Math.random().toString(36).substring(2, 15),
+                      managerId: manager.id,
+                      ticket: t.ticket
+                        ? t.ticket.toString()
+                        : Math.random().toString(36).substring(2),
+                      openTime: openTime,
+                      closeTime: closeTime,
+                      symbol: t.symbol || "Unknown",
+                      type: (t.action || "buy").toLowerCase() as "buy" | "sell",
+                      volume: t.sizing?.value || 0,
+                      openPrice: t.openPrice || 0,
+                      closePrice: t.closePrice || 0,
+                      profit: parseFloat(t.profit) || 0,
+                      sl: t.sl,
+                      tp: t.tp,
+                    };
+                  },
+                );
+
+                if (parsedTrades.length > 0) {
+                  setTrades(parsedTrades);
+                  return { success: true, count: parsedTrades.length };
+                }
+                return {
+                  success: false,
+                  count: 0,
+                  error: "No trades returned from Myfxbook Account ID.",
+                };
+              } else {
+                return {
+                  success: false,
+                  count: 0,
+                  error: `Myfxbook History Error: ${historyData.message || "Unknown"}`,
+                };
+              }
+            }
+          } else {
+            return {
+              success: false,
+              count: 0,
+              error: `Myfxbook Login Error: ${loginData.message || "Invalid Credentials"}`,
+            };
+          }
+        }
+      } catch (e: any) {
+        console.error("Myfxbook API Sync failed", e);
+        return {
+          success: false,
+          count: 0,
+          error: "Failed to connect to Myfxbook API.",
+        };
+      }
+    }
+
     if (manager?.mt5RestApiUrl) {
       try {
         let apiUrl = manager.mt5RestApiUrl;
@@ -1024,6 +1124,9 @@ export default function App() {
 -- alter table managers add column if not exists "permissions" jsonb;
 -- alter table managers add column if not exists "baseCurrency" text;
 -- alter table managers add column if not exists "ftpReportUrl" text;
+-- alter table managers add column if not exists "myfxbookEmail" text;
+-- alter table managers add column if not exists "myfxbookPassword" text;
+-- alter table managers add column if not exists "myfxbookAccountId" text;
 -- alter table managers add column if not exists "investorGroups" jsonb;
 -- alter table managers add column if not exists "defaultInvestorGroup" text;
 -- alter table managers add column if not exists "feeTiers" jsonb;
@@ -1071,6 +1174,9 @@ create table if not exists managers (
   "mt5Password" text,
   "mt5RestApiUrl" text,
   "ftpReportUrl" text,
+  "myfxbookEmail" text,
+  "myfxbookPassword" text,
+  "myfxbookAccountId" text,
   "baseCurrency" text,
   "investorGroups" jsonb,
   "defaultInvestorGroup" text,

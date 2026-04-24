@@ -49,6 +49,15 @@ export function SettingsView({
   const [ftpReportUrl, setFtpReportUrl] = useState(
     mainManager?.ftpReportUrl || "",
   );
+  const [myfxbookEmail, setMyfxbookEmail] = useState(
+    mainManager?.myfxbookEmail || "",
+  );
+  const [myfxbookPassword, setMyfxbookPassword] = useState(
+    mainManager?.myfxbookPassword || "",
+  );
+  const [myfxbookAccountId, setMyfxbookAccountId] = useState(
+    mainManager?.myfxbookAccountId || "",
+  );
   const [isSavingMT5, setIsSavingMT5] = useState(false);
 
   // Group Settings
@@ -199,9 +208,12 @@ export function SettingsView({
       mt5Password,
       mt5RestApiUrl,
       ftpReportUrl,
+      myfxbookEmail,
+      myfxbookPassword,
+      myfxbookAccountId,
     });
     setIsSavingMT5(false);
-    alert("MetaTrader 5 & FTP settings saved successfully.");
+    alert("MetaTrader 5, FTP & Myfxbook settings saved successfully.");
   };
 
   const handleToggleIBModule = () => {
@@ -911,9 +923,55 @@ create table if not exists period_history (id text primary key, date text, "tota
             </div>
             <p className="text-xs font-medium text-slate-500 mt-2">
               If using MT4/MT5 FTP Publisher (e.g., InfinityFree), provide the
-              public HTTP URL to the statement. Note: CORS issues might apply
-              depending on browser.
+              HTTP URL to the statement.
             </p>
+          </div>
+          <div className="md:col-span-2">
+            <h4 className="text-lg font-bold text-slate-800 dark:text-white mt-4 border-b pb-2 mb-4 dark:border-slate-800">
+              Myfxbook API Connection
+            </h4>
+          </div>
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                Myfxbook Email
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                  value={myfxbookEmail}
+                  onChange={(e) => setMyfxbookEmail(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                Myfxbook Password
+              </label>
+              <div className="relative">
+                <input
+                  type="password"
+                  className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                  value={myfxbookPassword}
+                  onChange={(e) => setMyfxbookPassword(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                Account ID
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="e.g. 1234567"
+                  className="w-full pl-4 pr-4 py-3 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                  value={myfxbookAccountId}
+                  onChange={(e) => setMyfxbookAccountId(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">

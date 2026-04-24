@@ -63,6 +63,9 @@ export interface Manager {
   mt5Password?: string;
   mt5RestApiUrl?: string;
   ftpReportUrl?: string;
+  myfxbookEmail?: string;
+  myfxbookPassword?: string;
+  myfxbookAccountId?: string;
   investorGroups?: string[];
   defaultInvestorGroup?: string;
   enableIBModule?: boolean;
