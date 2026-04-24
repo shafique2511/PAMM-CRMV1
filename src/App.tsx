@@ -38,7 +38,7 @@ const INITIAL_MANAGERS: Manager[] = [
   { id: "1", username: "admin", password: "password", name: "Super Admin" },
 ];
 
-import { hashPassword, setGlobalCurrency, formatCurrency } from "./lib/utils";
+import { hashPassword, setGlobalCurrency, formatCurrency, setGlobalIsCentAccount } from "./lib/utils";
 
 export default function App() {
   const [user, setUser] = useState<{
@@ -177,8 +177,11 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    if (managers.length > 0 && managers[0].baseCurrency) {
-      setGlobalCurrency(managers[0].baseCurrency);
+    if (managers.length > 0) {
+      if (managers[0].baseCurrency) {
+        setGlobalCurrency(managers[0].baseCurrency);
+      }
+      setGlobalIsCentAccount(managers[0].isCentAccount || false);
     }
   }, [managers]);
 
@@ -265,7 +268,8 @@ export default function App() {
       const { data: txData, error: txError } = await supabase!
         .from("transactions")
         .select("*")
-        .order("date", { ascending: false });
+        .order("date", { ascending: false })
+        .limit(5000);
       if (txError) throw txError;
       if (txData) setTransactions(txData);
 
@@ -273,7 +277,8 @@ export default function App() {
       const { data: tradeData, error: tradeError } = await supabase!
         .from("trades")
         .select("*")
-        .order("closeTime", { ascending: false });
+        .order("closeTime", { ascending: false })
+        .limit(5000);
       if (tradeError) throw tradeError;
       if (tradeData) setTrades(tradeData);
 
@@ -281,7 +286,8 @@ export default function App() {
       const { data: historyData, error: historyError } = await supabase!
         .from("period_history")
         .select("*")
-        .order("date", { ascending: false });
+        .order("date", { ascending: false })
+        .limit(5000);
       if (historyError) throw historyError;
       if (historyData) setPeriodHistory(historyData);
 
@@ -459,7 +465,7 @@ export default function App() {
             error.code === "400"
           ) {
             alert(
-              'Supabase Schema Error: Your database is missing columns for the newly added features. Try fully logging out to access the "Copy SQL" button on the Supabase setup screen, and run the listed ALTER TABLE commands to fix this issue.',
+              'Supabase Schema Error: Your database is missing columns (like "isCentAccount" or "baseCurrency") for the newly added features. Please go to your Supabase SQL Editor and run: alter table managers add column if not exists "isCentAccount" boolean; alter table managers add column if not exists "baseCurrency" text;',
             );
           }
         }
@@ -582,27 +588,19 @@ export default function App() {
       manager?.myfxbookAccountId
     ) {
       try {
-        const corsProxy = "https://api.allorigins.win/get?url=";
-
         // 1. Get Session
-        const loginUrl = encodeURIComponent(
-          `https://www.myfxbook.com/api/login.json?email=${encodeURIComponent(manager.myfxbookEmail)}&password=${encodeURIComponent(manager.myfxbookPassword)}`,
-        );
-        const loginRes = await fetch(`${corsProxy}${loginUrl}`);
+        const loginUrl = `/api/myfxbook/login.json?email=${encodeURIComponent(manager.myfxbookEmail)}&password=${encodeURIComponent(manager.myfxbookPassword)}`;
+        const loginRes = await fetch(loginUrl);
         if (loginRes.ok) {
-          const loginDataWrapper = await loginRes.json();
-          const loginData = JSON.parse(loginDataWrapper.contents);
+          const loginData = await loginRes.json();
           if (!loginData.error && loginData.session) {
             const session = loginData.session;
 
             // 2. Get history
-            const historyUrl = encodeURIComponent(
-              `https://www.myfxbook.com/api/get-history.json?session=${session}&id=${manager.myfxbookAccountId}`,
-            );
-            const historyRes = await fetch(`${corsProxy}${historyUrl}`);
+            const historyUrl = `/api/myfxbook/get-history.json?session=${session}&id=${manager.myfxbookAccountId}`;
+            const historyRes = await fetch(historyUrl);
             if (historyRes.ok) {
-              const historyDataWrapper = await historyRes.json();
-              const historyData = JSON.parse(historyDataWrapper.contents);
+              const historyData = await historyRes.json();
               if (!historyData.error && historyData.history) {
                 const parsedTrades: Trade[] = historyData.history.map(
                   (t: any) => {
@@ -631,12 +629,12 @@ export default function App() {
                       closeTime: closeTime,
                       symbol: t.symbol || "Unknown",
                       type: (t.action || "buy").toLowerCase() as "buy" | "sell",
-                      volume: t.sizing?.value || 0,
-                      openPrice: t.openPrice || 0,
-                      closePrice: t.closePrice || 0,
+                      volume: Number(t.sizing?.value || t.volume) || 0,
+                      openPrice: Number(t.openPrice) || 0,
+                      closePrice: Number(t.closePrice) || 0,
                       profit: parseFloat(t.profit) || 0,
-                      sl: t.sl,
-                      tp: t.tp,
+                      sl: Number(t.sl) || undefined,
+                      tp: Number(t.tp) || undefined,
                     };
                   },
                 );
@@ -734,12 +732,10 @@ export default function App() {
 
     if (manager?.ftpReportUrl && !manager?.mt5RestApiUrl) {
       try {
-        const corsProxy = "https://api.allorigins.win/get?url=";
         const targetUrl = encodeURIComponent(manager.ftpReportUrl);
-        const res = await fetch(`${corsProxy}${targetUrl}`);
+        const res = await fetch(`/api/ftp-proxy?url=${targetUrl}`);
         if (res.ok) {
-          const data = await res.json();
-          const htmlContent = data.contents;
+          const htmlContent = await res.text();
           if (htmlContent) {
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlContent, "text/html");
@@ -1123,6 +1119,7 @@ export default function App() {
 -- alter table managers add column if not exists "role" text;
 -- alter table managers add column if not exists "permissions" jsonb;
 -- alter table managers add column if not exists "baseCurrency" text;
+-- alter table managers add column if not exists "isCentAccount" boolean;
 -- alter table managers add column if not exists "ftpReportUrl" text;
 -- alter table managers add column if not exists "myfxbookEmail" text;
 -- alter table managers add column if not exists "myfxbookPassword" text;
@@ -1178,6 +1175,7 @@ create table if not exists managers (
   "myfxbookPassword" text,
   "myfxbookAccountId" text,
   "baseCurrency" text,
+  "isCentAccount" boolean,
   "investorGroups" jsonb,
   "defaultInvestorGroup" text,
   "feeTiers" jsonb,

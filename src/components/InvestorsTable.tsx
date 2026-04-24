@@ -1,13 +1,31 @@
-import React, { useState, useMemo } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import { Investor } from '../types';
-import { formatCurrency, formatPercent } from '../lib/utils';
-import { Edit2, Trash2, QrCode, Check, FileText, ArrowUpDown, Circle, UserCheck, UserMinus, ShieldAlert, Calendar, UserPlus } from 'lucide-react';
-import { InvoiceModal } from './InvoiceModal';
+import React, { useState, useMemo } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import { Investor } from "../types";
+import {
+  formatCurrency,
+  formatPercent,
+  fromCents,
+  toCents,
+} from "../lib/utils";
+import {
+  Edit2,
+  Trash2,
+  QrCode,
+  Check,
+  FileText,
+  ArrowUpDown,
+  Circle,
+  UserCheck,
+  UserMinus,
+  ShieldAlert,
+  Calendar,
+  UserPlus,
+} from "lucide-react";
+import { InvoiceModal } from "./InvoiceModal";
 
 interface InvestorsTableProps {
   investors: Investor[];
-  managers?: import('../types').Manager[];
+  managers?: import("../types").Manager[];
   availableGroups: string[];
   enableIBModule?: boolean;
   onUpdateInvestor: (id: string, updates: Partial<Investor>) => void;
@@ -16,20 +34,36 @@ interface InvestorsTableProps {
   readOnly?: boolean;
 }
 
-type SortKey = keyof Investor | 'roi' | 'managerProfit';
+type SortKey = keyof Investor | "roi" | "managerProfit";
 
-export function InvestorsTable({ investors, managers = [], availableGroups, enableIBModule, onUpdateInvestor, onDeleteInvestor, isAdmin, readOnly }: InvestorsTableProps) {
+export function InvestorsTable({
+  investors,
+  managers = [],
+  availableGroups,
+  enableIBModule,
+  onUpdateInvestor,
+  onDeleteInvestor,
+  isAdmin,
+  readOnly,
+}: InvestorsTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Investor>>({});
   const [showQR, setShowQR] = useState<string | null>(null);
   const [invoiceInvestor, setInvoiceInvestor] = useState<Investor | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [sortConfig, setSortConfig] = useState<{ key: SortKey, direction: 'asc' | 'desc' } | null>({ key: 'investorName', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{
+    key: SortKey;
+    direction: "asc" | "desc";
+  } | null>({ key: "investorName", direction: "asc" });
 
   const handleSort = (key: SortKey) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
+    let direction: "asc" | "desc" = "asc";
+    if (
+      sortConfig &&
+      sortConfig.key === key &&
+      sortConfig.direction === "asc"
+    ) {
+      direction = "desc";
     }
     setSortConfig({ key, direction });
   };
@@ -40,19 +74,27 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
       sortableInvestors.sort((a, b) => {
         let aValue: any = a[sortConfig.key as keyof Investor];
         let bValue: any = b[sortConfig.key as keyof Investor];
-        
-        if (sortConfig.key === 'roi') {
-          aValue = (a.startingCapital || 0) > 0 ? (a.netProfit / a.startingCapital) : 0;
-          bValue = (b.startingCapital || 0) > 0 ? (b.netProfit / b.startingCapital) : 0;
+
+        if (sortConfig.key === "roi") {
+          aValue =
+            (a.startingCapital || 0) > 0 ? a.netProfit / a.startingCapital : 0;
+          bValue =
+            (b.startingCapital || 0) > 0 ? b.netProfit / b.startingCapital : 0;
         }
 
-        if (sortConfig.key === 'managerProfit') {
-          aValue = (Number(a.feeCollected) || 0) + (Number(a.unpaidFee) || 0) + (Number(a.yourFee) || 0);
-          bValue = (Number(b.feeCollected) || 0) + (Number(b.unpaidFee) || 0) + (Number(b.yourFee) || 0);
+        if (sortConfig.key === "managerProfit") {
+          aValue =
+            (Number(a.feeCollected) || 0) +
+            (Number(a.unpaidFee) || 0) +
+            (Number(a.yourFee) || 0);
+          bValue =
+            (Number(b.feeCollected) || 0) +
+            (Number(b.unpaidFee) || 0) +
+            (Number(b.yourFee) || 0);
         }
 
-        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
       });
     }
@@ -70,52 +112,57 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
   };
 
   const handleInputChange = (field: keyof Investor, value: any) => {
-    setEditForm(prev => {
+    setEditForm((prev) => {
       const updates = { ...prev, [field]: value };
-      
+
       // Professional-grade stable math calculations:
       const safeNum = (val: any) => Number(val) || 0;
-      
+
       // For cross-field calculations, prioritize the currently editing object base
-      const originalInvestor = investors.find(i => i.id === editingId) || ({} as Investor);
-      
+      const originalInvestor =
+        investors.find((i) => i.id === editingId) || ({} as Investor);
+
       // Calculate active base values, preferring current mutations if they exist, except when those mutations are cyclic
       const currentNetProfit = safeNum(prev.netProfit);
       const currentStartingCapital = safeNum(prev.startingCapital);
 
-      if (field === 'startingCapital') {
+      if (field === "startingCapital") {
         const newCap = safeNum(value);
-        updates.endingCapital = newCap + currentNetProfit - safeNum(prev.cashPayout);
-        
-        if (safeNum(prev.highWaterMark) === 0 || (safeNum(prev.highWaterMark) < newCap && currentNetProfit === 0)) {
+        updates.endingCapital =
+          newCap + currentNetProfit - safeNum(prev.cashPayout);
+
+        if (
+          safeNum(prev.highWaterMark) === 0 ||
+          (safeNum(prev.highWaterMark) < newCap && currentNetProfit === 0)
+        ) {
           updates.highWaterMark = newCap;
         }
       }
 
-      if (field === 'cashPayout') {
+      if (field === "cashPayout") {
         const payout = safeNum(value);
         updates.reinvestAmt = currentNetProfit - payout;
         updates.endingCapital = currentStartingCapital + updates.reinvestAmt;
       }
-      
-      if (field === 'reinvestAmt') {
+
+      if (field === "reinvestAmt") {
         const reinvest = safeNum(value);
         updates.cashPayout = currentNetProfit - reinvest;
         updates.endingCapital = currentStartingCapital + reinvest;
       }
-      
-      if (field === 'feeCollected') {
+
+      if (field === "feeCollected") {
         const collected = safeNum(value);
         // Base total debt before any collections happened is derived from the historical record
         // to prevent cyclic mutations as the user types multiple digits.
-        // NOTE: We DO NOT include `originalYourFee` here because active floating fees 
+        // NOTE: We DO NOT include `originalYourFee` here because active floating fees
         // haven't been locked in yet (could change with market) and cannot be collected until Rollover.
         const originalUnpaid = safeNum(originalInvestor.unpaidFee);
         const originalCollected = safeNum(originalInvestor.feeCollected);
-        
+
         const historicalAbsoluteOwed = originalUnpaid + originalCollected;
-        
-        // Remove Math.max floor. We allow it to mathematically dip into a negative (Advance Payment) 
+
+        // Remove Math.max floor. We allow it to mathematically dip into a negative (Advance Payment)
         // state to guarantee that Fee Collected + Debt will ALWAYS strictly equal Mathematical Manager Profit.
         updates.unpaidFee = historicalAbsoluteOwed - collected;
       }
@@ -126,33 +173,49 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
 
   const StatusBadge = ({ status }: { status?: string }) => {
     switch (status) {
-      case 'active':
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
-          <UserCheck className="w-3 h-3" /> Active
-        </span>;
-      case 'suspended':
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-          <ShieldAlert className="w-3 h-3" /> Suspended
-        </span>;
-      case 'closed':
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400">
-          <UserMinus className="w-3 h-3" /> Closed
-        </span>;
+      case "active":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+            <UserCheck className="w-3 h-3" /> Active
+          </span>
+        );
+      case "suspended":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+            <ShieldAlert className="w-3 h-3" /> Suspended
+          </span>
+        );
+      case "closed":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400">
+            <UserMinus className="w-3 h-3" /> Closed
+          </span>
+        );
       default:
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-          <UserCheck className="w-3 h-3" /> Active
-        </span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+            <UserCheck className="w-3 h-3" /> Active
+          </span>
+        );
     }
   };
 
-  const SortHeader = ({ label, sortKey }: { label: string, sortKey: SortKey }) => (
-    <th 
+  const SortHeader = ({
+    label,
+    sortKey,
+  }: {
+    label: string;
+    sortKey: SortKey;
+  }) => (
+    <th
       className="px-4 py-4 font-bold whitespace-nowrap cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group border-b dark:border-slate-700"
       onClick={() => handleSort(sortKey)}
     >
       <div className="flex items-center gap-1">
         {label}
-        <ArrowUpDown className={`w-3 h-3 ${sortConfig?.key === sortKey ? 'text-blue-600' : 'text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity'}`} />
+        <ArrowUpDown
+          className={`w-3 h-3 ${sortConfig?.key === sortKey ? "text-blue-600" : "text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"}`}
+        />
       </div>
     </th>
   );
@@ -168,7 +231,9 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
                 {isAdmin && <SortHeader label="Manager" sortKey="managerId" />}
                 <SortHeader label="Status" sortKey="status" />
                 <SortHeader label="Group" sortKey="group" />
-                <th className="px-4 py-4 font-bold whitespace-nowrap border-b dark:border-slate-700">Access Key</th>
+                <th className="px-4 py-4 font-bold whitespace-nowrap border-b dark:border-slate-700">
+                  Access Key
+                </th>
                 <SortHeader label="St. Capital" sortKey="startingCapital" />
                 <SortHeader label="HWM" sortKey="highWaterMark" />
                 <SortHeader label="Loss C/O" sortKey="lossCarryover" />
@@ -187,32 +252,48 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
                 <SortHeader label="Fee Collected" sortKey="feeCollected" />
                 <SortHeader label="Mngr Profit" sortKey="managerProfit" />
                 <SortHeader label="Ending Equity" sortKey="endingCapital" />
-                <th className="px-4 py-4 font-bold whitespace-nowrap border-b dark:border-slate-700">Debt & Settlement</th>
-                <th className="px-4 py-4 font-bold whitespace-nowrap text-right border-b dark:border-slate-700">Actions</th>
+                <th className="px-4 py-4 font-bold whitespace-nowrap border-b dark:border-slate-700">
+                  Debt & Settlement
+                </th>
+                <th className="px-4 py-4 font-bold whitespace-nowrap text-right border-b dark:border-slate-700">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {sortedInvestors.map((inv) => {
                 const isEditing = editingId === inv.id;
-                const roi = (inv.startingCapital || 0) > 0 ? (inv.netProfit / inv.startingCapital) * 100 : 0;
+                const roi =
+                  (inv.startingCapital || 0) > 0
+                    ? (inv.netProfit / inv.startingCapital) * 100
+                    : 0;
 
                 return (
-                  <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                  <tr
+                    key={inv.id}
+                    className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
+                  >
                     <td className="px-4 py-4">
                       <div className="flex flex-col">
                         {isEditing ? (
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-sm dark:text-white"
-                            value={editForm.investorName || ''}
-                            onChange={(e) => handleInputChange('investorName', e.target.value)}
+                            value={editForm.investorName || ""}
+                            onChange={(e) =>
+                              handleInputChange("investorName", e.target.value)
+                            }
                           />
                         ) : (
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-900 dark:text-white">{inv.investorName}</span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {inv.investorName}
+                            </span>
                             <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                              <Calendar className="w-2.5 h-2.5" /> 
-                              {inv.joinedAt ? new Date(inv.joinedAt).toLocaleDateString() : 'Historical'}
+                              <Calendar className="w-2.5 h-2.5" />
+                              {inv.joinedAt
+                                ? new Date(inv.joinedAt).toLocaleDateString()
+                                : "Historical"}
                             </span>
                           </div>
                         )}
@@ -221,16 +302,19 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
                     {isAdmin && (
                       <td className="px-4 py-4">
                         <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                           {managers.find(m => m.id === inv.managerId)?.name || 'Admin HQ'}
+                          {managers.find((m) => m.id === inv.managerId)?.name ||
+                            "Admin HQ"}
                         </span>
                       </td>
                     )}
                     <td className="px-4 py-4">
                       {isEditing ? (
-                        <select 
+                        <select
                           className="px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.status || 'active'}
-                          onChange={e => handleInputChange('status', e.target.value)}
+                          value={editForm.status || "active"}
+                          onChange={(e) =>
+                            handleInputChange("status", e.target.value)
+                          }
                         >
                           <option value="active">Active</option>
                           <option value="suspended">Suspended</option>
@@ -244,98 +328,141 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
                       {isEditing ? (
                         <select
                           className="w-28 px-2 py-1 border rounded bg-white dark:bg-slate-950 dark:border-slate-700 text-xs dark:text-white"
-                          value={editForm.group || ''}
-                          onChange={(e) => handleInputChange('group', e.target.value)}
+                          value={editForm.group || ""}
+                          onChange={(e) =>
+                            handleInputChange("group", e.target.value)
+                          }
                         >
                           <option value="">Ungrouped</option>
-                          {availableGroups.map(g => (
-                            <option key={g} value={g}>{g}</option>
+                          {availableGroups.map((g) => (
+                            <option key={g} value={g}>
+                              {g}
+                            </option>
                           ))}
                         </select>
                       ) : (
                         <span className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                          {inv.group || 'N/A'}
+                          {inv.group || "N/A"}
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-4">
                       <div className="text-xs font-mono text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
                         {isEditing ? (
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                            value={editForm.password || ''}
-                            onChange={(e) => handleInputChange('password', e.target.value)}
+                            value={editForm.password || ""}
+                            onChange={(e) =>
+                              handleInputChange("password", e.target.value)
+                            }
                           />
-                        ) : (isAdmin ? (inv.password ? '••••' : 'N/A') : '••••')}
+                        ) : isAdmin ? (
+                          inv.password ? (
+                            "••••"
+                          ) : (
+                            "N/A"
+                          )
+                        ) : (
+                          "••••"
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-4 font-medium text-slate-900 dark:text-white">
                       {isEditing ? (
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           min="0"
                           className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.startingCapital ?? 0}
+                          value={fromCents(editForm.startingCapital ?? 0)}
                           onChange={(e) => {
                             const num = parseFloat(e.target.value);
-                            if (!isNaN(num)) handleInputChange('startingCapital', num < 0 ? 0 : num);
+                            if (!isNaN(num))
+                              handleInputChange(
+                                "startingCapital",
+                                num < 0 ? 0 : toCents(num),
+                              );
                           }}
                         />
-                      ) : formatCurrency(inv.startingCapital)}
+                      ) : (
+                        formatCurrency(inv.startingCapital)
+                      )}
                     </td>
                     <td className="px-4 py-4 text-indigo-600 dark:text-indigo-400 font-semibold">
                       {isEditing ? (
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           min="0"
                           className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.highWaterMark ?? 0}
+                          value={fromCents(editForm.highWaterMark ?? 0)}
                           onChange={(e) => {
                             const num = parseFloat(e.target.value);
-                            if (!isNaN(num)) handleInputChange('highWaterMark', num < 0 ? 0 : num);
+                            if (!isNaN(num))
+                              handleInputChange(
+                                "highWaterMark",
+                                num < 0 ? 0 : toCents(num),
+                              );
                           }}
                         />
-                      ) : formatCurrency(inv.highWaterMark)}
+                      ) : (
+                        formatCurrency(inv.highWaterMark)
+                      )}
                     </td>
                     <td className="px-4 py-4 text-rose-600 font-medium">
                       {isEditing ? (
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           min="0"
                           className="w-20 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.lossCarryover ?? 0}
+                          value={fromCents(editForm.lossCarryover ?? 0)}
                           onChange={(e) => {
                             const num = parseFloat(e.target.value);
-                            if (!isNaN(num)) handleInputChange('lossCarryover', num < 0 ? 0 : num);
+                            if (!isNaN(num))
+                              handleInputChange(
+                                "lossCarryover",
+                                num < 0 ? 0 : toCents(num),
+                              );
                           }}
                         />
-                      ) : formatCurrency(inv.lossCarryover)}
+                      ) : (
+                        formatCurrency(inv.lossCarryover)
+                      )}
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-1.5">
                         <div className="w-12 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shrink-0">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${inv.sharePercentage}%` }}></div>
+                          <div
+                            className="h-full bg-blue-500 rounded-full"
+                            style={{ width: `${inv.sharePercentage}%` }}
+                          ></div>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-500">{inv.sharePercentage}%</span>
+                        <span className="text-[10px] font-bold text-slate-500">
+                          {inv.sharePercentage}%
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-4">
                       {isEditing ? (
                         <div className="flex items-center gap-1">
-                          <input 
-                            type="number" 
+                          <input
+                            type="number"
                             min="0"
                             max="100"
                             className="w-16 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                            value={editForm.customFeePercentage ?? editForm.feePercentage}
+                            value={
+                              editForm.customFeePercentage ??
+                              editForm.feePercentage
+                            }
                             onChange={(e) => {
-                               const num = parseFloat(e.target.value);
-                               if (!isNaN(num)) {
-                                  if (num > 100) handleInputChange('customFeePercentage', 100);
-                                  else if (num < 0) handleInputChange('customFeePercentage', 0);
-                                  else handleInputChange('customFeePercentage', num);
-                               }
+                              const num = parseFloat(e.target.value);
+                              if (!isNaN(num)) {
+                                if (num > 100)
+                                  handleInputChange("customFeePercentage", 100);
+                                else if (num < 0)
+                                  handleInputChange("customFeePercentage", 0);
+                                else
+                                  handleInputChange("customFeePercentage", num);
+                              }
                             }}
                           />
                           <span className="text-xs text-slate-400">%</span>
@@ -350,113 +477,167 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
                       <>
                         <td className="px-4 py-4 text-slate-500 italic text-xs">
                           {isEditing ? (
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               className="w-24 px-2 py-1 border rounded text-xs dark:bg-slate-950 dark:border-slate-700 dark:text-white"
-                              value={editForm.referredBy || ''}
-                              onChange={(e) => handleInputChange('referredBy', e.target.value)}
+                              value={editForm.referredBy || ""}
+                              onChange={(e) =>
+                                handleInputChange("referredBy", e.target.value)
+                              }
                             />
-                          ) : (inv.referredBy || 'Direct')}
+                          ) : (
+                            inv.referredBy || "Direct"
+                          )}
                         </td>
                         <td className="px-4 py-4 text-xs font-medium text-slate-600 dark:text-slate-400">
                           {isEditing ? (
-                            <input 
-                              type="number" 
+                            <input
+                              type="number"
                               min="0"
                               max="100"
                               className="w-16 px-2 py-1 border rounded text-xs dark:bg-slate-950 dark:border-slate-700 dark:text-white"
                               value={editForm.ibCommissionRate || 0}
                               onChange={(e) => {
-                                 const num = parseFloat(e.target.value);
-                                 if (!isNaN(num)) {
-                                    if (num > 100) handleInputChange('ibCommissionRate', 100);
-                                    else if (num < 0) handleInputChange('ibCommissionRate', 0);
-                                    else handleInputChange('ibCommissionRate', num);
-                                 }
+                                const num = parseFloat(e.target.value);
+                                if (!isNaN(num)) {
+                                  if (num > 100)
+                                    handleInputChange("ibCommissionRate", 100);
+                                  else if (num < 0)
+                                    handleInputChange("ibCommissionRate", 0);
+                                  else
+                                    handleInputChange("ibCommissionRate", num);
+                                }
                               }}
                             />
-                          ) : (inv.ibCommissionRate ? `${inv.ibCommissionRate}%` : '0%')}
+                          ) : inv.ibCommissionRate ? (
+                            `${inv.ibCommissionRate}%`
+                          ) : (
+                            "0%"
+                          )}
                         </td>
                       </>
                     )}
                     <td className="px-4 py-4">
                       <div className="flex flex-col">
-                        <span className={`font-bold ${inv.netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <span
+                          className={`font-bold ${inv.netProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+                        >
                           {formatCurrency(inv.netProfit)}
                         </span>
                         <div className="flex items-center gap-2">
-                           {inv.yourFee > 0 && <span className="text-[9px] font-semibold text-slate-400 tracking-tighter">Gross: {formatCurrency(inv.individualProfitShare)}</span>}
+                          {inv.yourFee > 0 && (
+                            <span className="text-[9px] font-semibold text-slate-400 tracking-tighter">
+                              Gross: {formatCurrency(inv.individualProfitShare)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <div className={`text-[10px] font-black italic px-2 py-1 rounded-lg inline-block ${roi >= 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/20'}`}>
-                        {roi >= 0 ? '+' : ''}{roi.toFixed(2)}%
+                      <div
+                        className={`text-[10px] font-black italic px-2 py-1 rounded-lg inline-block ${roi >= 0 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20" : "bg-rose-50 text-rose-700 dark:bg-rose-900/20"}`}
+                      >
+                        {roi >= 0 ? "+" : ""}
+                        {roi.toFixed(2)}%
                       </div>
                     </td>
                     <td className="px-4 py-4 font-medium text-slate-900 dark:text-white">
                       {isEditing ? (
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           min="0"
                           className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.reinvestAmt ?? 0}
+                          value={fromCents(editForm.reinvestAmt ?? 0)}
                           onChange={(e) => {
                             const num = parseFloat(e.target.value);
-                            if (!isNaN(num)) handleInputChange('reinvestAmt', num < 0 ? 0 : num);
+                            if (!isNaN(num))
+                              handleInputChange(
+                                "reinvestAmt",
+                                num < 0 ? 0 : toCents(num),
+                              );
                           }}
                         />
-                      ) : formatCurrency(inv.reinvestAmt)}
+                      ) : (
+                        formatCurrency(inv.reinvestAmt)
+                      )}
                     </td>
                     <td className="px-4 py-4 font-medium text-slate-900 dark:text-white">
                       {isEditing ? (
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           min="0"
                           className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.cashPayout ?? 0}
+                          value={fromCents(editForm.cashPayout ?? 0)}
                           onChange={(e) => {
                             const num = parseFloat(e.target.value);
-                            if (!isNaN(num)) handleInputChange('cashPayout', num < 0 ? 0 : num);
+                            if (!isNaN(num))
+                              handleInputChange(
+                                "cashPayout",
+                                num < 0 ? 0 : toCents(num),
+                              );
                           }}
                         />
-                      ) : formatCurrency(inv.cashPayout)}
+                      ) : (
+                        formatCurrency(inv.cashPayout)
+                      )}
                     </td>
                     <td className="px-4 py-4 font-medium text-slate-900 dark:text-white">
                       {isEditing ? (
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           min="0"
                           className="w-24 px-2 py-1 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs dark:text-white"
-                          value={editForm.feeCollected ?? 0}
+                          value={fromCents(editForm.feeCollected ?? 0)}
                           onChange={(e) => {
                             const num = parseFloat(e.target.value);
-                            if (!isNaN(num)) handleInputChange('feeCollected', num < 0 ? 0 : num);
+                            if (!isNaN(num))
+                              handleInputChange(
+                                "feeCollected",
+                                num < 0 ? 0 : toCents(num),
+                              );
                           }}
                         />
-                      ) : formatCurrency(inv.feeCollected)}
+                      ) : (
+                        formatCurrency(inv.feeCollected)
+                      )}
                     </td>
                     <td className="px-4 py-4 font-bold text-indigo-600 dark:text-indigo-400">
                       {formatCurrency(
-                        (Number(isEditing ? editForm.feeCollected : inv.feeCollected) || 0) + 
-                        (Number(isEditing ? editForm.unpaidFee : inv.unpaidFee) || 0) + 
-                        (Number(inv.yourFee) || 0)
+                        (Number(
+                          isEditing ? editForm.feeCollected : inv.feeCollected,
+                        ) || 0) +
+                          (Number(
+                            isEditing ? editForm.unpaidFee : inv.unpaidFee,
+                          ) || 0) +
+                          (Number(inv.yourFee) || 0),
                       )}
                     </td>
                     <td className="px-4 py-4 font-black text-slate-900 dark:text-white">
-                      {formatCurrency(isEditing ? editForm.endingCapital : inv.endingCapital)}
+                      {formatCurrency(
+                        isEditing ? editForm.endingCapital : inv.endingCapital,
+                      )}
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1">
-                          <span className="text-[10px] uppercase font-bold text-slate-400">Bal:</span>
-                          <span className="font-bold text-orange-600">{formatCurrency(isEditing ? editForm.unpaidFee : inv.unpaidFee)}</span>
+                          <span className="text-[10px] uppercase font-bold text-slate-400">
+                            Bal:
+                          </span>
+                          <span className="font-bold text-orange-600">
+                            {formatCurrency(
+                              isEditing ? editForm.unpaidFee : inv.unpaidFee,
+                            )}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          {inv.bankAccount && <Circle className="w-1.5 h-1.5 fill-blue-500 text-blue-500" />}
+                          {inv.bankAccount && (
+                            <Circle className="w-1.5 h-1.5 fill-blue-500 text-blue-500" />
+                          )}
                           {inv.qrCode && (
-                            <button 
-                              onClick={() => setShowQR(showQR === inv.id ? null : inv.id)}
+                            <button
+                              onClick={() =>
+                                setShowQR(showQR === inv.id ? null : inv.id)
+                              }
                               className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-500"
                             >
                               <QrCode className="w-3.5 h-3.5" />
@@ -472,7 +653,7 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
                     </td>
                     <td className="px-4 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
+                        <button
                           onClick={() => setInvoiceInvestor(inv)}
                           className="p-2 bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white rounded-xl transition-all"
                           title="Generate Settlement Statement"
@@ -482,33 +663,40 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
                         {isAdmin && !readOnly && (
                           <>
                             {isEditing ? (
-                              <button 
+                              <button
                                 onClick={() => handleSaveClick(inv.id)}
                                 className="p-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl transition-all shadow-md"
                               >
                                 <Check className="w-4 h-4" />
                               </button>
                             ) : (
-                              <button 
+                              <button
                                 onClick={() => handleEditClick(inv)}
                                 className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl transition-all"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
                             )}
-                            <button 
+                            <button
                               onClick={() => {
                                 if (confirmDeleteId === inv.id) {
                                   onDeleteInvestor(inv.id);
                                   setConfirmDeleteId(null);
                                 } else {
                                   setConfirmDeleteId(inv.id);
-                                  setTimeout(() => setConfirmDeleteId(null), 3000);
+                                  setTimeout(
+                                    () => setConfirmDeleteId(null),
+                                    3000,
+                                  );
                                 }
                               }}
-                              className={`p-2 rounded-xl transition-all ${confirmDeleteId === inv.id ? 'bg-red-600 text-white animate-pulse' : 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white'}`}
+                              className={`p-2 rounded-xl transition-all ${confirmDeleteId === inv.id ? "bg-red-600 text-white animate-pulse" : "bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white"}`}
                             >
-                              {confirmDeleteId === inv.id ? <Check className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
+                              {confirmDeleteId === inv.id ? (
+                                <Check className="w-4 h-4" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </button>
                           </>
                         )}
@@ -519,11 +707,16 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
               })}
               {investors.length === 0 && (
                 <tr>
-                  <td colSpan={17} className="px-4 py-16 text-center text-slate-400">
+                  <td
+                    colSpan={17}
+                    className="px-4 py-16 text-center text-slate-400"
+                  >
                     <div className="flex flex-col items-center gap-2">
-                       <UserPlus className="w-12 h-12 opacity-10" />
-                       <p className="text-xs uppercase font-black tracking-widest">System Empty</p>
-                       <p className="text-sm">No investor records found.</p>
+                      <UserPlus className="w-12 h-12 opacity-10" />
+                      <p className="text-xs uppercase font-black tracking-widest">
+                        System Empty
+                      </p>
+                      <p className="text-sm">No investor records found.</p>
                     </div>
                   </td>
                 </tr>
@@ -534,10 +727,10 @@ export function InvestorsTable({ investors, managers = [], availableGroups, enab
       </div>
 
       {invoiceInvestor && (
-        <InvoiceModal 
+        <InvoiceModal
           investor={invoiceInvestor}
-          manager={managers.find(m => m.id === invoiceInvestor.managerId)}
-          onClose={() => setInvoiceInvestor(null)} 
+          manager={managers.find((m) => m.id === invoiceInvestor.managerId)}
+          onClose={() => setInvoiceInvestor(null)}
         />
       )}
     </div>

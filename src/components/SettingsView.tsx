@@ -89,10 +89,21 @@ export function SettingsView({
     mainManager?.baseCurrency || "USD",
   );
 
+  const [isCentAccount, setIsCentAccount] = useState(
+    mainManager?.isCentAccount || false,
+  );
+
   const handleUpdateCurrency = (newCurrency: string) => {
     setBaseCurrency(newCurrency);
     if (mainManager) {
       onUpdateManager(mainManager.id, { baseCurrency: newCurrency });
+    }
+  };
+
+  const handleUpdateCentAccount = (val: boolean) => {
+    setIsCentAccount(val);
+    if (mainManager) {
+      onUpdateManager(mainManager.id, { isCentAccount: val });
     }
   };
 
@@ -366,6 +377,7 @@ export function SettingsView({
 
 -- 1. Managers Table Updates
 alter table managers add column if not exists "baseCurrency" text;
+alter table managers add column if not exists "isCentAccount" boolean;
 alter table managers add column if not exists "investorGroups" jsonb;
 alter table managers add column if not exists "defaultInvestorGroup" text;
 alter table managers add column if not exists "feeTiers" jsonb;
@@ -866,6 +878,32 @@ create table if not exists period_history (id text primary key, date text, "tota
                 <option value="CHF">CHF (Fr)</option>
               </select>
             </div>
+
+            <label className="flex items-center gap-3 mt-4 p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-900 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors">
+              <div className="relative flex items-center">
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={isCentAccount}
+                  onChange={(e) => handleUpdateCentAccount(e.target.checked)}
+                />
+                <div
+                  className={`block w-10 h-6 rounded-full transition-colors ${isCentAccount ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-700"}`}
+                ></div>
+                <div
+                  className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${isCentAccount ? "transform translate-x-4" : ""}`}
+                ></div>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-slate-900 dark:text-white">
+                  Cent Account Mode
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Values are divided by 100 for display (e.g. 10,000 cents = 100
+                  base currency)
+                </span>
+              </div>
+            </label>
           </div>
         </div>
       </div>
@@ -960,7 +998,12 @@ create table if not exists period_history (id text primary key, date text, "tota
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                Account ID
+                Account ID{" "}
+                <span className="font-normal text-slate-500 ml-1 text-xs">
+                  (Found in your Myfxbook portfolio URL, e.g.,
+                  'https://www.myfxbook.com/members/username/system/
+                  <b>1234567</b>')
+                </span>
               </label>
               <div className="relative">
                 <input

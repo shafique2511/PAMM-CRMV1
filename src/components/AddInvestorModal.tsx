@@ -1,39 +1,59 @@
-import React, { useState } from 'react';
-import { X, UserPlus, Shield, Wallet, Percent, Users, Key, Save } from 'lucide-react';
-import { Investor, Manager } from '../types';
+import React, { useState } from "react";
+import {
+  X,
+  UserPlus,
+  Shield,
+  Wallet,
+  Percent,
+  Users,
+  Key,
+  Save,
+} from "lucide-react";
+import { Investor, Manager } from "../types";
 
 interface AddInvestorModalProps {
   onClose: () => void;
   onAdd: (data: Partial<Investor>) => void;
   managers: Manager[];
-  currentUser?: { id?: string; name: string; role: string; managerRole?: string } | null;
+  currentUser?: {
+    id?: string;
+    name: string;
+    role: string;
+    managerRole?: string;
+  } | null;
   availableGroups: string[];
 }
 
-export function AddInvestorModal({ onClose, onAdd, managers, currentUser, availableGroups }: AddInvestorModalProps) {
-  const isSuperAdmin = currentUser?.managerRole === 'admin';
-  const manager = managers.find(m => m.id === currentUser?.id) || managers[0];
+export function AddInvestorModal({
+  onClose,
+  onAdd,
+  managers,
+  currentUser,
+  availableGroups,
+}: AddInvestorModalProps) {
+  const isSuperAdmin = currentUser?.managerRole === "admin";
+  const manager = managers.find((m) => m.id === currentUser?.id) || managers[0];
 
   const [formData, setFormData] = useState<Partial<Investor>>({
     managerId: manager?.id,
-    investorName: '',
-    password: 'password123',
-    group: manager?.defaultInvestorGroup || availableGroups[0] || 'Default',
+    investorName: "",
+    password: "password123",
+    group: manager?.defaultInvestorGroup || availableGroups[0] || "Default",
     feePercentage: manager?.defaultFeePercentage || 20,
     startingCapital: 0,
     highWaterMark: 0,
-    baseCurrency: manager?.baseCurrency || 'USD',
-    status: 'active',
-    bankAccount: '',
-    qrCode: '',
-    referredBy: '',
+    baseCurrency: manager?.baseCurrency || "USD",
+    status: "active",
+    bankAccount: "",
+    qrCode: "",
+    referredBy: "",
     ibCommissionRate: 0,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.investorName) return;
-    
+
     // Ensure HWM is at least starting capital if not specified
     const finalData = {
       ...formData,
@@ -41,13 +61,13 @@ export function AddInvestorModal({ onClose, onAdd, managers, currentUser, availa
       joinedAt: new Date().toISOString(),
       endingCapital: formData.startingCapital || 0,
     };
-    
+
     onAdd(finalData);
     onClose();
   };
 
   const handleInputChange = (field: keyof Investor, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -58,9 +78,14 @@ export function AddInvestorModal({ onClose, onAdd, managers, currentUser, availa
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <UserPlus className="w-5 h-5 text-white" />
             </div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Onboard New Investor</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              Onboard New Investor
+            </h2>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors"
+          >
             <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
@@ -74,54 +99,74 @@ export function AddInvestorModal({ onClose, onAdd, managers, currentUser, availa
               </h3>
               {managers.length > 1 && isSuperAdmin && (
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Assigned Manager</label>
-                  <select 
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Assigned Manager
+                  </label>
+                  <select
                     className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
-                    value={formData.managerId || ''}
-                    onChange={e => handleInputChange('managerId', e.target.value)}
+                    value={formData.managerId || ""}
+                    onChange={(e) =>
+                      handleInputChange("managerId", e.target.value)
+                    }
                   >
-                    <option value="" disabled>Select Manager</option>
-                    {managers.map(m => (
-                      <option key={m.id} value={m.id}>{m.name} ({m.role || 'Admin'})</option>
+                    <option value="" disabled>
+                      Select Manager
+                    </option>
+                    {managers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.role || "Admin"})
+                      </option>
                     ))}
                   </select>
                 </div>
               )}
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Investor Full Name</label>
-                <input 
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Investor Full Name
+                </label>
+                <input
                   autoFocus
                   required
-                  type="text" 
+                  type="text"
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
                   placeholder="e.g. John Doe"
                   value={formData.investorName}
-                  onChange={e => handleInputChange('investorName', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("investorName", e.target.value)
+                  }
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Access Password</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Access Password
+                </label>
                 <div className="relative">
                   <Key className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white font-mono"
                     value={formData.password}
-                    onChange={e => handleInputChange('password', e.target.value)}
+                    onChange={(e) =>
+                      handleInputChange("password", e.target.value)
+                    }
                   />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Investor Group</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Investor Group
+                </label>
                 <div className="relative">
                   <Users className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                  <select 
+                  <select
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white appearance-none"
                     value={formData.group}
-                    onChange={e => handleInputChange('group', e.target.value)}
+                    onChange={(e) => handleInputChange("group", e.target.value)}
                   >
-                    {availableGroups.map(g => (
-                      <option key={g} value={g}>{g}</option>
+                    {availableGroups.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -134,37 +179,42 @@ export function AddInvestorModal({ onClose, onAdd, managers, currentUser, availa
                 <Wallet className="w-3 h-3" /> Financial Configuration
               </h3>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Initial Deposit ({formData.baseCurrency})</label>
-                <input 
-                  type="number" 
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Initial Deposit ({formData.baseCurrency})
+                </label>
+                <input
+                  type="number"
                   min="0"
                   step="0.01"
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
                   value={formData.startingCapital}
-                  onChange={e => {
-                     const num = parseFloat(e.target.value);
-                     if (!isNaN(num) && num < 0) handleInputChange('startingCapital', 0);
-                     else handleInputChange('startingCapital', num);
+                  onChange={(e) => {
+                    const num = parseFloat(e.target.value);
+                    if (!isNaN(num) && num < 0)
+                      handleInputChange("startingCapital", 0);
+                    else handleInputChange("startingCapital", num);
                   }}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Performance Fee (%)</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Performance Fee (%)
+                </label>
                 <div className="relative">
                   <Percent className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     min="0"
                     max="100"
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
                     value={formData.feePercentage}
-                    onChange={e => {
-                       const num = parseFloat(e.target.value);
-                       if (!isNaN(num)) {
-                         if (num > 100) handleInputChange('feePercentage', 100);
-                         else if (num < 0) handleInputChange('feePercentage', 0);
-                         else handleInputChange('feePercentage', num);
-                       }
+                    onChange={(e) => {
+                      const num = parseFloat(e.target.value);
+                      if (!isNaN(num)) {
+                        if (num > 100) handleInputChange("feePercentage", 100);
+                        else if (num < 0) handleInputChange("feePercentage", 0);
+                        else handleInputChange("feePercentage", num);
+                      }
                     }}
                   />
                 </div>
@@ -172,30 +222,38 @@ export function AddInvestorModal({ onClose, onAdd, managers, currentUser, availa
               {manager?.enableIBModule && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Referrer (IB)</label>
-                    <input 
-                      type="text" 
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Referrer (IB)
+                    </label>
+                    <input
+                      type="text"
                       className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
                       placeholder="Optional"
                       value={formData.referredBy}
-                      onChange={e => handleInputChange('referredBy', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("referredBy", e.target.value)
+                      }
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">IB Rate (%)</label>
-                    <input 
-                      type="number" 
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      IB Rate (%)
+                    </label>
+                    <input
+                      type="number"
                       min="0"
                       max="100"
                       className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
                       value={formData.ibCommissionRate}
-                      onChange={e => {
-                         const num = parseFloat(e.target.value);
-                         if (!isNaN(num)) {
-                           if (num > 100) handleInputChange('ibCommissionRate', 100);
-                           else if (num < 0) handleInputChange('ibCommissionRate', 0);
-                           else handleInputChange('ibCommissionRate', num);
-                         }
+                      onChange={(e) => {
+                        const num = parseFloat(e.target.value);
+                        if (!isNaN(num)) {
+                          if (num > 100)
+                            handleInputChange("ibCommissionRate", 100);
+                          else if (num < 0)
+                            handleInputChange("ibCommissionRate", 0);
+                          else handleInputChange("ibCommissionRate", num);
+                        }
                       }}
                     />
                   </div>
@@ -206,40 +264,48 @@ export function AddInvestorModal({ onClose, onAdd, managers, currentUser, availa
 
           {/* Additional Info */}
           <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Bank & Settlement</h3>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              Bank & Settlement
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Bank Account Details / USDT Address</label>
-                <textarea 
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Bank Account Details / USDT Address
+                </label>
+                <textarea
                   rows={2}
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white resize-none"
                   placeholder="Banking coordinates or wallet address"
                   value={formData.bankAccount}
-                  onChange={e => handleInputChange('bankAccount', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("bankAccount", e.target.value)
+                  }
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Payment QR Payload (URL/Data)</label>
-                <input 
-                  type="text" 
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Payment QR Payload (URL/Data)
+                </label>
+                <input
+                  type="text"
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
                   placeholder="https://..."
                   value={formData.qrCode}
-                  onChange={e => handleInputChange('qrCode', e.target.value)}
+                  onChange={(e) => handleInputChange("qrCode", e.target.value)}
                 />
               </div>
             </div>
           </div>
 
           <div className="mt-8 flex items-center justify-end gap-3">
-            <button 
+            <button
               type="button"
               onClick={onClose}
               className="px-6 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
             >
               Cancel
             </button>
-            <button 
+            <button
               type="submit"
               className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 flex items-center gap-2 transition-all active:scale-95"
             >

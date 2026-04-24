@@ -58,6 +58,7 @@ export interface Manager {
   role?: "admin" | "manager" | "read_only" | "custom";
   permissions?: AccessPermissions;
   baseCurrency?: string;
+  isCentAccount?: boolean;
   mt5Server?: string;
   mt5Login?: string;
   mt5Password?: string;
