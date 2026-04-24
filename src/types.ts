@@ -12,7 +12,7 @@ export interface Investor {
   password?: string;
   group?: string;
   baseCurrency?: string;
-  status?: 'active' | 'suspended' | 'closed';
+  status?: "active" | "suspended" | "closed";
   joinedAt?: string;
   email?: string;
   phone?: string;
@@ -30,7 +30,7 @@ export interface Investor {
   ibCommissionRate?: number;
   yourFee: number;
   netProfit: number;
-  reinvestAmt: number; 
+  reinvestAmt: number;
   cashPayout: number;
   endingCapital: number;
   qrCode: string;
@@ -55,13 +55,14 @@ export interface Manager {
   username: string;
   password?: string;
   name: string;
-  role?: 'admin' | 'manager' | 'read_only' | 'custom';
+  role?: "admin" | "manager" | "read_only" | "custom";
   permissions?: AccessPermissions;
   baseCurrency?: string;
   mt5Server?: string;
   mt5Login?: string;
   mt5Password?: string;
   mt5RestApiUrl?: string;
+  ftpReportUrl?: string;
   investorGroups?: string[];
   defaultInvestorGroup?: string;
   enableIBModule?: boolean;
@@ -77,14 +78,14 @@ export interface Transaction {
   id: string;
   managerId?: string;
   investorId?: string;
-  type: 'deposit' | 'withdrawal' | 'fee_payment' | 'manager_withdrawal';
+  type: "deposit" | "withdrawal" | "fee_payment" | "manager_withdrawal";
   amount: number;
   date: string;
-  status: 'completed' | 'pending' | 'rejected';
+  status: "completed" | "pending" | "rejected";
   notes?: string;
   referenceId?: string;
   method?: string;
-  category?: 'Internal' | 'Bank' | 'Crypto' | 'Correction' | 'Other';
+  category?: "Internal" | "Bank" | "Crypto" | "Correction" | "Other";
   receiptUrl?: string;
 }
 
@@ -101,7 +102,7 @@ export interface Trade {
   openTime: string;
   closeTime: string;
   symbol: string;
-  type: 'buy' | 'sell';
+  type: "buy" | "sell";
   volume: number;
   openPrice: number;
   closePrice: number;
@@ -136,5 +137,5 @@ export interface AuditLog {
   userName?: string;
   action: string;
   details: string;
-  type: 'auth' | 'investor' | 'transaction' | 'system' | 'trade';
+  type: "auth" | "investor" | "transaction" | "system" | "trade";
 }
