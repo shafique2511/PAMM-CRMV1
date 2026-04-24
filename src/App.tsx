@@ -161,7 +161,8 @@ export default function App() {
     setAuditLogs(prev => [newLog, ...prev]);
     if (supabase) {
       try {
-        await supabase.from('audit_logs').insert([newLog]);
+        const { id, ...logToInsert } = newLog;
+        await supabase.from('audit_logs').insert([logToInsert]);
       } catch (e) {
         console.error("Failed to save audit log", e);
       }
@@ -173,17 +174,7 @@ export default function App() {
     if (supabase) {
       try {
         await supabase.from('audit_logs').delete().not('id', 'is', null);
-        // Add a single log stating it was cleared
-        const clearLog = {
-          id: Math.random().toString(36).substring(2, 15),
-          timestamp: new Date().toISOString(),
-          userName: user?.name || 'System',
-          action: 'Clear Audit Logs',
-          details: 'All audit logs were cleared by the administrator',
-          type: 'system' as const
-        };
-        setAuditLogs([clearLog]);
-        await supabase.from('audit_logs').insert([clearLog]);
+        logAction('Clear Audit Logs', 'All audit logs were cleared by the administrator', 'system');
       } catch (e) {
         console.error("Failed to clear audit logs", e);
       }
